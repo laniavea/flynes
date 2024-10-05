@@ -3,11 +3,12 @@ use std::collections::HashMap;
 mod memory;
 mod instructions;
 
+#[derive(Debug, Clone)]
 pub struct Cpu {
     reg_a: u8,
     reg_x: u8,
     reg_y: u8,
-    proc_stat: u8,
+    cpu_status: u8,
     stack_pointer: u8,
     program_counter: u16,
     operations: HashMap<u8, instructions::Operation>,
@@ -21,7 +22,7 @@ impl Default for Cpu {
             reg_a: u8::default(),
             reg_x: u8::default(),
             reg_y: u8::default(),
-            proc_stat: u8::default(),
+            cpu_status: u8::default(),
             stack_pointer: u8::default(),
             program_counter: u16::default(),
             operations: instructions::init_all_operations(),
@@ -37,7 +38,7 @@ impl Cpu {
             reg_a: u8::default(),
             reg_x: u8::default(),
             reg_y: u8::default(),
-            proc_stat: u8::default(),
+            cpu_status: u8::default(),
             stack_pointer: u8::default(),
             program_counter: u16::default(),
             operations: instructions::init_all_operations(),
@@ -60,7 +61,7 @@ impl Cpu {
     }
 
     pub fn proc_stat(&self) -> u8 {
-        self.proc_stat
+        self.cpu_status
     }
 
     pub fn stack_pointer(&self) -> u8 {

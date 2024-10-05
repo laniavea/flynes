@@ -5,8 +5,10 @@ mod inst_cde;
 mod inst_ijlno;
 mod inst_prs;
 mod inst_t;
+mod shared_ops;
 
-enum MemoryType {
+#[derive(Debug, Clone)]
+pub enum MemoryType {
     Immediate,
     ZeroPage,
     ZeroPageX,
@@ -17,10 +19,12 @@ enum MemoryType {
     IndirectY,
 }
 
-enum OpType {
+#[derive(Debug, Clone)]
+pub enum OpType {
     OpLDA,
 }
 
+#[derive(Debug, Clone)]
 pub struct Operation {
    op_id: u8,
    bytes: u8,
@@ -38,6 +42,26 @@ impl Operation {
             op_type,
             memory_type,
         }
+    }
+
+    pub fn op_id(&self) -> u8 {
+        self.op_id
+    }
+
+    pub fn bytes(&self) -> u8 {
+        self.bytes
+    }
+
+    pub fn cycles(&self) -> u8 {
+        self.cycles
+    }
+
+    pub fn op_type(&self) -> OpType {
+        self.op_type.clone()
+    }
+
+    pub fn memory_type(&self) -> MemoryType {
+        self.memory_type.clone()
     }
 }
 
