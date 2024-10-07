@@ -46,7 +46,38 @@ impl Cpu {
         }
     }
 
-    pub fn main_loop() {
+    pub fn print_regs(&self) {
+        println!("--------------");
+        println!("REG A: {}\nREG X: {}\nREG Y: {}", self.reg_a, self.reg_x, self.reg_y);
+        println!("--------------");
+    }
 
+    pub fn run_cpu(&mut self, commands: Vec<u8>) {
+        let mut now_command_id = 0;
+        let mut counter = 0;
+        while now_command_id < commands.len() && counter < 1_000_000_000 {
+            let now_operations = self.operations.get(&commands[now_command_id]).expect("Unknown command");
+
+            let readed_data = match now_operations.bytes() {
+                1 => self.read_memory(0, now_operations.memory_type()),
+                2 => {
+                    now_command_id += 1;
+                    self.read_memory(commands[now_command_id] as u16, now_operations.memory_type())
+                },
+                3 => {
+                    let now_data = (commands[now_command_id + 1] as u16 + (commands[now_command_id + 2] as u16)) << 8;
+                    self.read_memory(now_data, now_operations.memory_type())
+                },
+                _ => { unreachable!() }
+            };
+
+            self.do_insturction(readed_data, now_operations.op_type().clone());
+
+            // self.print_regs();
+
+            now_command_id += 1;
+            counter += 1;
+            now_command_id = 0;
+        }
     }
 }

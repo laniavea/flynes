@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use log::{debug, info};
 
+use crate::cpu::Cpu;
 use crate::cpu::memory::MemoryType;
 
 mod inst_ab;
@@ -54,6 +55,16 @@ impl Operation {
 
     pub fn memory_type(&self) -> &MemoryType {
         &self.memory_type
+    }
+}
+
+impl Cpu {
+    pub fn do_insturction(&mut self, data: u8, instruction_type: OpType) {
+        match instruction_type {
+            OpType::OpLDA => {
+                self.op_lda(data);
+            },
+        }
     }
 }
 
