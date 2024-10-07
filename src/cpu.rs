@@ -7,8 +7,8 @@ pub struct Cpu {
     reg_x: u8,
     reg_y: u8,
     cpu_status: u8,
-    stack_pointer: u8,
-    program_counter: u16,
+    _stack_pointer: u8,
+    _program_counter: u16,
     operations: [Option<instructions::Operation>; 256],
     memory: [u8; 0xFFFF],
 }
@@ -21,8 +21,8 @@ impl Default for Cpu {
             reg_x: u8::default(),
             reg_y: u8::default(),
             cpu_status: u8::default(),
-            stack_pointer: u8::default(),
-            program_counter: u16::default(),
+            _stack_pointer: u8::default(),
+            _program_counter: u16::default(),
             operations: instructions::init_all_operations(),
             memory: [0u8; 0xFFFF],
         }
@@ -37,8 +37,8 @@ impl Cpu {
             reg_x: u8::default(),
             reg_y: u8::default(),
             cpu_status: u8::default(),
-            stack_pointer: u8::default(),
-            program_counter: u16::default(),
+            _stack_pointer: u8::default(),
+            _program_counter: u16::default(),
             operations: instructions::init_all_operations(),
             memory: [0u8; 0xFFFF],
         }
@@ -52,8 +52,7 @@ impl Cpu {
 
     pub fn run_cpu(&mut self, commands: Vec<u8>) {
         let mut now_command_id = 0;
-        let mut counter = 0;
-        while now_command_id < commands.len() && counter < 1_000_000_000 {
+        while now_command_id < commands.len() {
             let now_operations = self.operations[commands[now_command_id] as usize].expect("Unknown operation");
 
             let readed_data = match now_operations.bytes() {
@@ -70,12 +69,9 @@ impl Cpu {
             };
 
             self.do_insturction(readed_data, now_operations.op_type());
-
-            // self.print_regs();
+            self.print_regs();
 
             now_command_id += 1;
-            counter += 1;
-            now_command_id = 0;
         }
     }
 }
