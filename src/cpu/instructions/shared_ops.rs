@@ -1,5 +1,3 @@
-use crate::cpu::Cpu;
-
 pub fn update_zero_and_neg_flags(cpu_status: u8, op_result: u8) -> u8 {
     let temp_cpu_status = if op_result == 0 {
         cpu_status | 0b0100_0000

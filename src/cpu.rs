@@ -45,30 +45,8 @@ impl Cpu {
             memory: [0u8; 0xFFFF],
         }
     }
-}
 
-impl Cpu {
-    pub fn reg_a(&self) -> u8 {
-        self.reg_a
-    }
+    pub fn main_loop() {
 
-    pub fn reg_x(&self) -> u8 {
-        self.reg_x
-    }
-
-    pub fn reg_y(&self) -> u8 {
-        self.reg_y
-    }
-
-    pub fn proc_stat(&self) -> u8 {
-        self.cpu_status
-    }
-
-    pub fn stack_pointer(&self) -> u8 {
-        self.stack_pointer
-    }
-
-    pub fn program_counter(&self) -> u16 {
-        self.program_counter
     }
 }
