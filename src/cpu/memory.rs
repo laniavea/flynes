@@ -1,6 +1,7 @@
 use crate::cpu::Cpu;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
+#[repr(u8)]
 pub enum MemoryType {
     Immediate,
     ZeroPage,
@@ -22,7 +23,7 @@ impl Cpu {
     /// Function to read data from memory in different modes from selected pointer.
     /// The meaning of pointer changes based on memory_type.
     /// more info at https://www.nesdev.org/obelisk-6502-guide/addressing.html
-    pub fn read_memory(&self, pointer: u16, memory_type: &MemoryType) -> u8 {
+    pub fn read_memory(&self, pointer: u16, memory_type: MemoryType) -> u8 {
         match memory_type {
             MemoryType::Immediate => {
                 pointer as u8

@@ -12,12 +12,13 @@ mod inst_prs;
 mod inst_t;
 mod shared_ops;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
+#[repr(u8)]
 pub enum OpType {
     OpLDA,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Operation {
    op_id: u8,
    bytes: u8,
@@ -49,12 +50,12 @@ impl Operation {
         self.cycles
     }
 
-    pub fn op_type(&self) -> &OpType {
-        &self.op_type
+    pub fn op_type(&self) -> OpType {
+        self.op_type
     }
 
-    pub fn memory_type(&self) -> &MemoryType {
-        &self.memory_type
+    pub fn memory_type(&self) -> MemoryType {
+        self.memory_type
     }
 }
 
@@ -68,18 +69,18 @@ impl Cpu {
     }
 }
 
-pub fn init_all_operations() -> HashMap<u8, Operation> {
-    let mut operations: HashMap<u8, Operation> = HashMap::with_capacity(256);
+pub fn init_all_operations() -> [Option<Operation>; 256] {
+    let mut operations: [Option<Operation>; 256] = [None; 256];
 
     // LDA operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#LDA
-    operations.insert(0xA9, Operation::new(0xA9, 2, 2, OpType::OpLDA, MemoryType::Immediate));
-    operations.insert(0xA5, Operation::new(0xA5, 2, 3, OpType::OpLDA, MemoryType::ZeroPage));
-    operations.insert(0xB5, Operation::new(0xB5, 2, 4, OpType::OpLDA, MemoryType::ZeroPageX));
-    operations.insert(0xAD, Operation::new(0xAD, 3, 4, OpType::OpLDA, MemoryType::Absolute));
-    operations.insert(0xBD, Operation::new(0xBD, 3, 4, OpType::OpLDA, MemoryType::AbsoluteX));
-    operations.insert(0xB9, Operation::new(0xB9, 3, 4, OpType::OpLDA, MemoryType::AbsoluteY));
+    operations[0xA9] = Some(Operation::new(0xA9, 2, 2, OpType::OpLDA, MemoryType::Immediate));
+    operations[0xA5] = Some(Operation::new(0xA5, 2, 3, OpType::OpLDA, MemoryType::ZeroPage));
+    operations[0xB5] = Some(Operation::new(0xB5, 2, 4, OpType::OpLDA, MemoryType::ZeroPageX));
+    operations[0xAD] = Some(Operation::new(0xAD, 3, 4, OpType::OpLDA, MemoryType::Absolute));
+    operations[0xBD] = Some(Operation::new(0xBD, 3, 4, OpType::OpLDA, MemoryType::AbsoluteX));
+    operations[0xB9] = Some(Operation::new(0xB9, 3, 4, OpType::OpLDA, MemoryType::AbsoluteY));
 
-    info!("Operations hashmap created with {} elements", operations.len());
+    info!("Operations array created with {} elements", operations.iter().filter(|val| val.is_some()).count());
 
     operations
 }

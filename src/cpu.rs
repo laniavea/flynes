@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 mod memory;
 mod instructions;
 
@@ -11,7 +9,7 @@ pub struct Cpu {
     cpu_status: u8,
     stack_pointer: u8,
     program_counter: u16,
-    operations: HashMap<u8, instructions::Operation>,
+    operations: [Option<instructions::Operation>; 256],
     memory: [u8; 0xFFFF],
 }
 
@@ -56,7 +54,7 @@ impl Cpu {
         let mut now_command_id = 0;
         let mut counter = 0;
         while now_command_id < commands.len() && counter < 1_000_000_000 {
-            let now_operations = self.operations.get(&commands[now_command_id]).expect("Unknown command");
+            let now_operations = self.operations[commands[now_command_id] as usize].expect("Unknown operation");
 
             let readed_data = match now_operations.bytes() {
                 1 => self.read_memory(0, now_operations.memory_type()),
@@ -71,7 +69,7 @@ impl Cpu {
                 _ => { unreachable!() }
             };
 
-            self.do_insturction(readed_data, now_operations.op_type().clone());
+            self.do_insturction(readed_data, now_operations.op_type());
 
             // self.print_regs();
 
