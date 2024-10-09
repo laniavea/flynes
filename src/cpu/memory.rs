@@ -3,6 +3,7 @@ use crate::cpu::Cpu;
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum MemoryType {
+    Accumulator,
     Immediate,
     ZeroPage,
     ZeroPageX,
@@ -25,6 +26,9 @@ impl Cpu {
     /// more info at https://www.nesdev.org/obelisk-6502-guide/addressing.html
     pub fn ref_to_memory_by_address(&mut self, pointer: u16, memory_type: MemoryType) -> u16 {
         match memory_type {
+            MemoryType::Accumulator => {
+                0
+            },
             MemoryType::Immediate => {
                 pointer
             },

@@ -19,6 +19,8 @@ pub enum OpType {
     OpLdxIm,
     OpLDY,
     OpLdyIm,
+    OpLSR,
+    OpLsrA,
     OpSTA,
     OpSTX,
     OpSTY,
@@ -68,6 +70,8 @@ impl Cpu {
             OpType::OpLdxIm => self.op_ldx_im(memory_data),
             OpType::OpLDY => self.op_ldy(memory_data),
             OpType::OpLdyIm => self.op_ldy_im(memory_data),
+            OpType::OpLSR => self.op_lsr(memory_data),
+            OpType::OpLsrA => self.op_lsr_a(),
             OpType::OpSTA => self.op_sta(memory_data),
             OpType::OpSTX => self.op_stx(memory_data),
             OpType::OpSTY => self.op_sty(memory_data),
@@ -104,6 +108,14 @@ pub fn init_all_operations() -> [Option<Operation>; 256] {
     operations[0xB4] = Some(Operation::new(2, 4, OpType::OpLDY, MemoryType::ZeroPageX));
     operations[0xAC] = Some(Operation::new(3, 4, OpType::OpLDY, MemoryType::Absolute));
     operations[0xBC] = Some(Operation::new(3, 4, OpType::OpLDY, MemoryType::AbsoluteX));
+
+    // LSR operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#LSR
+    // Perfomas logical shift right
+    operations[0x4A] = Some(Operation::new(1, 2, OpType::OpLsrA, MemoryType::Accumulator));
+    operations[0x46] = Some(Operation::new(2, 5, OpType::OpLSR, MemoryType::ZeroPage));
+    operations[0x56] = Some(Operation::new(2, 6, OpType::OpLSR, MemoryType::ZeroPageX));
+    operations[0x4E] = Some(Operation::new(3, 6, OpType::OpLSR, MemoryType::Absolute));
+    operations[0x5E] = Some(Operation::new(3, 7, OpType::OpLSR, MemoryType::AbsoluteX));
 
     // STA operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#STA
     // Append data from register A to memory

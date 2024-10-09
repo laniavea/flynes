@@ -1,6 +1,18 @@
 mod memory;
 mod instructions;
 
+// ----- Flags -----
+// 7 6 5 4 3 2 1 0
+// N V _ B D I Z C
+//
+// N - Negative
+// V - Overflow 
+// B - Break
+// D - Decimal
+// I - Interrupt
+// Z - Zero
+// C - Carry
+
 #[derive(Debug, Clone)]
 pub struct Cpu {
     reg_a: u8,
@@ -44,16 +56,9 @@ impl Cpu {
         }
     }
 
-    pub fn print_regs(&self) {
-        println!("-------------Registers-------------");
-        println!("REG A: {}\nREG X: {}\nREG Y: {}", self.reg_a, self.reg_x, self.reg_y);
-        println!("-----------------------------------");
-    }
-
     pub fn run_cpu(&mut self, commands: Vec<u8>) {
         let mut now_command_id = 0;
-        let mut commands_count = 0;
-        while now_command_id < commands.len() && commands_count < 1_000_000_000 {
+        while now_command_id < commands.len() {
             let now_operations = self.operations[commands[now_command_id] as usize]
                 .unwrap_or_else(|| panic!("Unknown operation - {}", commands[now_command_id]));
 
@@ -72,11 +77,58 @@ impl Cpu {
             };
 
             self.do_insturction(data_ref, now_operations.op_type());
-            // self.print_regs();
+
+            self.print_regs();
+            self.print_zero_page();
+            self.print_flags();
 
             now_command_id += 1;
-            commands_count += 1;
-            now_command_id = 0;
         }
+    }
+}
+
+impl Cpu {
+    pub fn print_regs(&self) {
+        println!("-------------Registers-------------");
+        println!("REG A: {}\nREG X: {}\nREG Y: {}", self.reg_a, self.reg_x, self.reg_y);
+        println!("-----------------------------------");
+    }
+
+    pub fn print_zero_page(&self) {
+        println!("-------------Zero Page-------------");
+        for i in 0..16 {
+            for j in 0..16 {
+                print!("{:?}, ", self.memory[i * 16 + j])
+            }
+            println!();
+        }
+        println!("-----------------------------------");
+    }
+
+    pub fn print_flags(&self) {
+        println!("-------------Status-------------");
+
+        let flags: [String; 8] = [
+            String::from("Carry\t"),
+            String::from("Zero\t"),
+            String::from("Interrupt"),
+            String::from("Decimal"),
+            String::from("Break\t"),
+            String::from("_\t"),
+            String::from("Overflow"),
+            String::from("Negative")
+        ];
+
+        let st_val = 1;
+
+        for (now_id, now_flag) in flags.iter().enumerate() {
+            if self.cpu_status & (st_val << now_id) == st_val << now_id {
+                println!("{} \t-> {}", now_flag, 1)
+            } else {
+                println!("{} \t-> {}", now_flag, 0)
+            }
+        }
+
+        println!("-----------------------------------");
     }
 }
