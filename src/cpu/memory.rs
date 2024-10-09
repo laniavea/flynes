@@ -23,38 +23,36 @@ impl Cpu {
     /// Function to read data from memory in different modes from selected pointer.
     /// The meaning of pointer changes based on memory_type.
     /// more info at https://www.nesdev.org/obelisk-6502-guide/addressing.html
-    pub fn read_memory(&self, pointer: u16, memory_type: MemoryType) -> u8 {
+    pub fn ref_to_memory_by_address(&mut self, pointer: u16, memory_type: MemoryType) -> u16 {
         match memory_type {
             MemoryType::Immediate => {
-                pointer as u8
+                pointer
             },
             MemoryType::ZeroPage => {
-                self.memory[pointer as usize]
+                pointer
             },
             MemoryType::ZeroPageX => {
-                self.memory[pointer as usize + self.reg_x as usize]
+                (pointer as u8 + self.reg_x) as u16
             },
             MemoryType::ZeroPageY => {
-                self.memory[pointer as usize + self.reg_y as usize]
+                (pointer as u8 + self.reg_y) as u16
             },
             MemoryType::Absolute => {
-                self.memory[pointer as usize]
+                pointer
             },
             MemoryType::AbsoluteX => {
-                self.memory[pointer as usize + self.reg_x as usize]
+                pointer + self.reg_x as u16
             },
             MemoryType::AbsoluteY => {
-                self.memory[pointer as usize + self.reg_y as usize]
+                pointer + self.reg_y as u16
             },
             MemoryType::IndirectX => {
                 let zero_page_add = (self.reg_x + pointer as u8) as usize;
-                let abs_add = self.memory[zero_page_add] as usize + ((self.memory[zero_page_add + 1] as usize) << 8);
-                self.memory[abs_add]
+                self.memory[zero_page_add] as u16 + ((self.memory[zero_page_add + 1] as u16) << 8)
             },
             MemoryType::IndirectY => {
                 let zero_page_add = (self.reg_y + pointer as u8) as usize;
-                let abs_add = self.memory[zero_page_add] as usize + ((self.memory[zero_page_add + 1] as usize) << 8);
-                self.memory[abs_add]
+                self.memory[zero_page_add] as u16 + ((self.memory[zero_page_add + 1] as u16) << 8)
             },
             _ => {
                 unimplemented!();
