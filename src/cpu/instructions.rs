@@ -21,6 +21,9 @@ pub enum OpType {
     OpLdyIm,
     OpLSR,
     OpLsrA,
+    OpSEC,
+    OpSED,
+    OpSEI,
     OpSTA,
     OpSTX,
     OpSTY,
@@ -78,6 +81,9 @@ impl Cpu {
             OpType::OpLdyIm => self.op_ldy_im(memory_data),
             OpType::OpLSR => self.op_lsr(memory_data),
             OpType::OpLsrA => self.op_lsr_a(),
+            OpType::OpSEC => self.op_sec(),
+            OpType::OpSED => self.op_sed(),
+            OpType::OpSEI => self.op_sei(),
             OpType::OpSTA => self.op_sta(memory_data),
             OpType::OpSTX => self.op_stx(memory_data),
             OpType::OpSTY => self.op_sty(memory_data),
@@ -128,6 +134,18 @@ pub fn init_all_operations() -> [Option<Operation>; 256] {
     operations[0x56] = Some(Operation::new(2, 6, OpType::OpLSR, MemoryType::ZeroPageX));
     operations[0x4E] = Some(Operation::new(3, 6, OpType::OpLSR, MemoryType::Absolute));
     operations[0x5E] = Some(Operation::new(3, 7, OpType::OpLSR, MemoryType::AbsoluteX));
+
+    // SEC operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#SEC
+    // Sets carry flag to one
+    operations[0x38] = Some(Operation::new(1, 2, OpType::OpSEC, MemoryType::Implied));
+
+    // SED operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#SED
+    // Sets decimal flag to one
+    operations[0xF8] = Some(Operation::new(1, 2, OpType::OpSED, MemoryType::Implied));
+
+    // SEI operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#SEI
+    // Sets interrupt disable flag to one
+    operations[0x78] = Some(Operation::new(1, 2, OpType::OpSEI, MemoryType::Implied));
 
     // STA operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#STA
     // Append data from register A to memory
