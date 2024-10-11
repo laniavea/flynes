@@ -3,6 +3,7 @@ use crate::cpu::Cpu;
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum MemoryType {
+    Implied,
     Accumulator,
     Immediate,
     ZeroPage,
@@ -24,7 +25,7 @@ impl Cpu {
     /// Function to read data from memory in different modes from selected pointer.
     /// The meaning of pointer changes based on memory_type.
     /// more info at https://www.nesdev.org/obelisk-6502-guide/addressing.html
-    pub fn ref_to_memory_by_address(&mut self, pointer: u16, memory_type: MemoryType) -> u16 {
+    pub fn ref_to_memory_by_address(&self, pointer: u16, memory_type: MemoryType) -> u16 {
         match memory_type {
             MemoryType::Accumulator => {
                 0

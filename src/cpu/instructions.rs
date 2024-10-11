@@ -24,6 +24,12 @@ pub enum OpType {
     OpSTA,
     OpSTX,
     OpSTY,
+    OpTAX,
+    OpTAY,
+    OpTSX,
+    OpTXA,
+    OpTXS,
+    OpTYA,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -75,6 +81,12 @@ impl Cpu {
             OpType::OpSTA => self.op_sta(memory_data),
             OpType::OpSTX => self.op_stx(memory_data),
             OpType::OpSTY => self.op_sty(memory_data),
+            OpType::OpTAX => self.op_tax(),
+            OpType::OpTAY => self.op_tay(),
+            OpType::OpTSX => self.op_tsx(),
+            OpType::OpTXA => self.op_txa(),
+            OpType::OpTXS => self.op_txs(),
+            OpType::OpTYA => self.op_tya(),
         }
     }
 }
@@ -138,6 +150,30 @@ pub fn init_all_operations() -> [Option<Operation>; 256] {
     operations[0x84] = Some(Operation::new(2, 3, OpType::OpSTY, MemoryType::ZeroPage));
     operations[0x94] = Some(Operation::new(2, 4, OpType::OpSTY, MemoryType::ZeroPageY));
     operations[0x8C] = Some(Operation::new(3, 4, OpType::OpSTY, MemoryType::Absolute));
+
+    // TAX operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#TAX
+    // Content from A reg to X reg
+    operations[0xAA] = Some(Operation::new(1, 2, OpType::OpTAX, MemoryType::Implied));
+
+    // TAY operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#TAY
+    // Content from A reg to Y reg
+    operations[0xA8] = Some(Operation::new(1, 2, OpType::OpTAY, MemoryType::Implied));
+
+    // TSX operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#TSX
+    // Copies content from stack reg to X
+    operations[0xBA] = Some(Operation::new(1, 2, OpType::OpTSX, MemoryType::Implied));
+    
+    // TXA operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#TXA
+    // Copies content from reg X to reg A
+    operations[0x8A] = Some(Operation::new(1, 2, OpType::OpTXA, MemoryType::Implied));
+
+    // TXS operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#TXS
+    // Copies content from reg X to stack reg
+    operations[0x9A] = Some(Operation::new(1, 2, OpType::OpTXS, MemoryType::Implied));
+
+    // TYA operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#TYA
+    // Copies content from Y reg to A reg
+    operations[0x98] = Some(Operation::new(1, 2, OpType::OpTYA, MemoryType::Implied));
 
     info!("Operations array created with {} elements", operations.iter().filter(|val| val.is_some()).count());
 
