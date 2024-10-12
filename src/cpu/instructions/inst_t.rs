@@ -32,3 +32,27 @@ impl Cpu {
         self.cpu_status = update_zero_and_neg_flags(self.cpu_status, self.reg_a);
     }
 }
+
+#[test]
+fn test_t_operations() {
+    let mut cpu = Cpu::new();
+
+    cpu.reg_x = 0;
+    cpu.reg_y = 0;
+    cpu.reg_a = 255;
+
+    cpu.op_tax();
+    cpu.op_tay();
+    assert_eq!((cpu.reg_x, cpu.reg_y, cpu.reg_a), (255, 255, 255));
+
+    cpu.stack_pointer = 0;
+    cpu.op_tsx();
+    cpu.op_txa();
+    assert_eq!(cpu.reg_a, cpu.stack_pointer);
+
+    cpu.reg_x = 127;
+    cpu.reg_y = 127;
+    cpu.op_txs();
+    cpu.op_tya();
+    assert_eq!(cpu.stack_pointer, cpu.reg_a);
+}

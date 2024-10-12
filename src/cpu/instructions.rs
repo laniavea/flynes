@@ -21,6 +21,8 @@ pub enum OpType {
     OpLdyIm,
     OpLSR,
     OpLsrA,
+    OpSBC,
+    OpSBCIm,
     OpSEC,
     OpSED,
     OpSEI,
@@ -81,6 +83,8 @@ impl Cpu {
             OpType::OpLdyIm => self.op_ldy_im(memory_data),
             OpType::OpLSR => self.op_lsr(memory_data),
             OpType::OpLsrA => self.op_lsr_a(),
+            OpType::OpSBC => self.op_sbc(memory_data),
+            OpType::OpSBCIm => self.op_sbc_im(memory_data),
             OpType::OpSEC => self.op_sec(),
             OpType::OpSED => self.op_sed(),
             OpType::OpSEI => self.op_sei(),
@@ -134,6 +138,17 @@ pub fn init_all_operations() -> [Option<Operation>; 256] {
     operations[0x56] = Some(Operation::new(2, 6, OpType::OpLSR, MemoryType::ZeroPageX));
     operations[0x4E] = Some(Operation::new(3, 6, OpType::OpLSR, MemoryType::Absolute));
     operations[0x5E] = Some(Operation::new(3, 7, OpType::OpLSR, MemoryType::AbsoluteX));
+
+    // SBC operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
+    // Substructs content of a memory locations to the accumulator
+    operations[0xE9] = Some(Operation::new(2, 2, OpType::OpSBCIm, MemoryType::Immediate));
+    operations[0xE5] = Some(Operation::new(2, 3, OpType::OpSBC, MemoryType::ZeroPage));
+    operations[0xF5] = Some(Operation::new(2, 4, OpType::OpSBC, MemoryType::ZeroPageX));
+    operations[0xED] = Some(Operation::new(3, 4, OpType::OpSBC, MemoryType::Absolute));
+    operations[0xFD] = Some(Operation::new(3, 4, OpType::OpSBC, MemoryType::AbsoluteX));
+    operations[0xF9] = Some(Operation::new(3, 4, OpType::OpSBC, MemoryType::AbsoluteY));
+    operations[0xE1] = Some(Operation::new(2, 6, OpType::OpSBC, MemoryType::IndirectX));
+    operations[0xF1] = Some(Operation::new(2, 5, OpType::OpSBC, MemoryType::IndirectY));
 
     // SEC operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#SEC
     // Sets carry flag to one
