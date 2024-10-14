@@ -1,6 +1,10 @@
 use crate::cpu::Cpu;
 use crate::cpu::instructions::shared_ops::*;
 
+// All obelisk 6502 instructions which starts with T
+// All of them just copy values from one register to another with Zero an Neg flags update
+// Instructions here: TAX, TAY, TSX, TXA, TXS, TYA
+// More info: https://www.nesdev.org/obelisk-6502-guide/reference.html#TAX
 impl Cpu {
     pub fn op_tax(&mut self) {
         self.reg_x = self.reg_a;

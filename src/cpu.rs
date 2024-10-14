@@ -1,6 +1,7 @@
 mod memory;
 mod instructions;
 
+// -- CPU STATUS --
 // ----- Flags -----
 // 7 6 5 4 3 2 1 0
 // N V _ B D I Z C
@@ -12,6 +13,12 @@ mod instructions;
 // I - Interrupt
 // Z - Zero
 // C - Carry
+//
+// reg a - accumulator
+// reg x - x register
+// reg y - y register
+//
+// stack_pointer
 
 #[derive(Debug, Clone)]
 pub struct Cpu {

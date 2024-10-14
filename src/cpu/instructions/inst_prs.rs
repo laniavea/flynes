@@ -1,6 +1,10 @@
 use crate::cpu::Cpu;
 use crate::cpu::instructions::shared_ops::*;
 
+// All obelisk 6502 instructions which starts with P, R or S.
+// Instructions here: SBC, SEC, SED, SEI, STA, STX, STY
+// More info: https://www.nesdev.org/obelisk-6502-guide/reference.html#PHA
+// TODO: Compete PHA, PHP, PLA, PLP, ROL, ROR, RTI, RYS, SBC
 impl Cpu {
     pub fn op_sbc(&mut self, data_ref: u16) {
         //TODO: Complete SBC instruction
@@ -10,9 +14,21 @@ impl Cpu {
 
     pub fn op_sbc_im(&mut self, data: u16) {
         //TODO: Complete SBC Im instruction
-        let temp_val = self.reg_a;
+        let new_data = if get_flag(self.cpu_status, 0) {
+            (data as u8).wrapping_sub(2)
+        } else {
+            (data as u8).wrapping_sub(1)
+        };
+
+        let temp_val = self.reg_a.wrapping_sub(new_data as u8);
+        if (self.reg_a^temp_val & (self.reg_a^(data as u8)).wrapping_neg()) & 0b1000_0000 == 0b1000_0000 {
+            self.cpu_status = set_overflow_flag(self.cpu_status, true);
+        } else {
+            self.cpu_status = set_overflow_flag(self.cpu_status, false);
+        }
 
         self.cpu_status = update_zero_and_neg_flags(self.cpu_status, self.reg_a);
+        self.reg_a = temp_val
     }
 
     pub fn op_sec(&mut self) {
@@ -58,9 +74,30 @@ fn test_prs_operations() {
     cpu.op_sei();
     cpu.op_sec();
     cpu.op_sed();
-    assert_eq!(cpu.cpu_status, 0b00001101);
+    assert_eq!(cpu.cpu_status, 0b0000_1101);
     cpu.op_sei();
     cpu.op_sec();
     cpu.op_sed();
-    assert_eq!(cpu.cpu_status, 0b00001101);
+    assert_eq!(cpu.cpu_status, 0b0000_1101);
+    
+    // Assemble
+    // LDA #$00
+    // SBC #$64
+    // SBC #$9B
+    // SBC #$01
+    // SBC #$FC
+    // SBC #$02
+    cpu.reg_a = 0;
+    cpu.cpu_status = 0b0000_0000;
+    cpu.op_sbc_im(0x64);
+    assert_eq!(cpu.reg_a, 0x9B);
+    cpu.op_sbc_im(0x9B);
+    assert_eq!(cpu.reg_a, 0xFF);
+    cpu.op_sbc_im(0x01);
+    assert_eq!(cpu.reg_a, 0xFD);
+    cpu.op_sbc_im(0xFC);
+    assert_eq!(cpu.reg_a, 0x01);
+    cpu.op_sbc_im(0x02);
+    assert_eq!(cpu.reg_a, 0xFF);
+    //TODO: write SBC and higher tests
 }

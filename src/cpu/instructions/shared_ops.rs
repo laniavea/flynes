@@ -23,6 +23,16 @@ pub fn update_carry_flag(cpu_status: u8, value: u8) -> u8 {
 }
 
 #[inline(always)]
+//TODO: Test
+pub fn set_overflow_flag(cpu_status: u8, is_one: bool) -> u8 {
+    if is_one {
+        cpu_status | 0b0100_0000
+    } else {
+        cpu_status & 0b1011_1111
+    }
+}
+
+#[inline(always)]
 pub fn set_interrupt_flag(cpu_status: u8, is_one: bool) -> u8 {
     if is_one {
         cpu_status | 0b0000_0100
@@ -53,6 +63,7 @@ pub fn set_carry_flag(cpu_status: u8, is_one: bool) -> u8 {
 pub fn get_flag(cpu_status: u8, flag_to_find: u8) -> bool {
     // 7 6 5 4 3 2 1 0
     // N V _ B D I Z C
+    // Read more in cpu.rs
     match flag_to_find {
         0 => cpu_status & 0b0000_0001 == 0b0000_0001,
         1 => cpu_status & 0b0000_0010 == 0b0000_0010,

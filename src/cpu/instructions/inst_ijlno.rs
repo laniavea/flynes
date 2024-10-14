@@ -45,3 +45,5 @@ impl Cpu {
         self.cpu_status = update_zero_and_neg_flags(self.cpu_status, self.reg_a)
     }
 }
+
+//TODO: Write tests
