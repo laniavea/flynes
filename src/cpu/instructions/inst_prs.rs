@@ -4,31 +4,59 @@ use crate::cpu::instructions::shared_ops::*;
 // All obelisk 6502 instructions which starts with P, R or S.
 // Instructions here: SBC, SEC, SED, SEI, STA, STX, STY
 // More info: https://www.nesdev.org/obelisk-6502-guide/reference.html#PHA
-// TODO: Compete PHA, PHP, PLA, PLP, ROL, ROR, RTI, RYS, SBC
+// TODO: Compete PHA, PHP, PLA, PLP, ROL, ROR, RTI, RYS
 impl Cpu {
     pub fn op_sbc(&mut self, data_ref: u16) {
-        //TODO: Complete SBC instruction
-
-        self.cpu_status = update_zero_and_neg_flags(self.cpu_status, self.reg_a);
-    }
-
-    pub fn op_sbc_im(&mut self, data: u16) {
-        //TODO: Complete SBC Im instruction
-        let new_data = if get_flag(self.cpu_status, 0) {
-            (data as u8).wrapping_sub(2)
+        let data = self.memory[data_ref as usize];
+        // Formula is A(ccumulator) - M(emory) - (C(arry) - 1)
+        let temp_val = if get_flag(self.cpu_status, 0) {
+            self.reg_a.wrapping_sub(data)
         } else {
-            (data as u8).wrapping_sub(1)
+            self.reg_a.wrapping_sub(data).wrapping_sub(1)
         };
 
-        let temp_val = self.reg_a.wrapping_sub(new_data as u8);
-        if (self.reg_a^temp_val & (self.reg_a^(data as u8)).wrapping_neg()) & 0b1000_0000 == 0b1000_0000 {
+        // Set overflow if first bits were same, but result's first bit isn't same (11 0 -> Overflow)
+        if ((self.reg_a^temp_val) & ((data)^temp_val).wrapping_neg()) & 0b1000_0000 == 0b1000_0000 {
             self.cpu_status = set_overflow_flag(self.cpu_status, true);
         } else {
             self.cpu_status = set_overflow_flag(self.cpu_status, false);
         }
 
+        // Sets because it's sum of reg_a and inv data -> if result < reg_a -> reg_a + data > 255
+        if temp_val <= self.reg_a {
+            self.cpu_status = set_carry_flag(self.cpu_status, true);
+        } else {
+            self.cpu_status = set_carry_flag(self.cpu_status, false);
+        }
+
+        self.reg_a = temp_val;
         self.cpu_status = update_zero_and_neg_flags(self.cpu_status, self.reg_a);
-        self.reg_a = temp_val
+    }
+
+    pub fn op_sbc_im(&mut self, data: u16) {
+        // Formula is A(ccumulator) - M(emory) - (C(arry) - 1)
+        let temp_val = if get_flag(self.cpu_status, 0) {
+            self.reg_a.wrapping_sub(data as u8)
+        } else {
+            self.reg_a.wrapping_sub(data as u8).wrapping_sub(1)
+        };
+
+        // Set overflow if first bits were same, but result's first bit isn't same (11 0 -> Overflow)
+        if ((self.reg_a^temp_val) & ((data as u8)^temp_val).wrapping_neg()) & 0b1000_0000 == 0b1000_0000 {
+            self.cpu_status = set_overflow_flag(self.cpu_status, true);
+        } else {
+            self.cpu_status = set_overflow_flag(self.cpu_status, false);
+        }
+
+        // Sets because it's sum of reg_a and inv data -> if result < reg_a -> reg_a + data > 255
+        if temp_val <= self.reg_a {
+            self.cpu_status = set_carry_flag(self.cpu_status, true);
+        } else {
+            self.cpu_status = set_carry_flag(self.cpu_status, false);
+        }
+
+        self.reg_a = temp_val;
+        self.cpu_status = update_zero_and_neg_flags(self.cpu_status, self.reg_a);
     }
 
     pub fn op_sec(&mut self) {
@@ -80,6 +108,7 @@ fn test_prs_operations() {
     cpu.op_sed();
     assert_eq!(cpu.cpu_status, 0b0000_1101);
     
+    // Tested on https://skilldrick.github.io/easy6502/
     // Assemble
     // LDA #$00
     // SBC #$64
@@ -87,17 +116,23 @@ fn test_prs_operations() {
     // SBC #$01
     // SBC #$FC
     // SBC #$02
-    cpu.reg_a = 0;
+    // SBC #$80
+    // SBC #$80
     cpu.cpu_status = 0b0000_0000;
+    cpu.op_lda_im(0);
     cpu.op_sbc_im(0x64);
-    assert_eq!(cpu.reg_a, 0x9B);
+    assert_eq!((cpu.reg_a, cpu.cpu_status), (0x9B,0b1000_0000));
     cpu.op_sbc_im(0x9B);
-    assert_eq!(cpu.reg_a, 0xFF);
+    assert_eq!((cpu.reg_a, cpu.cpu_status), (0xFF, 0b1000_0000));
     cpu.op_sbc_im(0x01);
-    assert_eq!(cpu.reg_a, 0xFD);
+    assert_eq!((cpu.reg_a, cpu.cpu_status), (0xFD, 0b1000_0001));
     cpu.op_sbc_im(0xFC);
-    assert_eq!(cpu.reg_a, 0x01);
+    assert_eq!((cpu.reg_a, cpu.cpu_status), (0x01, 0b0000_0001));
     cpu.op_sbc_im(0x02);
-    assert_eq!(cpu.reg_a, 0xFF);
+    assert_eq!((cpu.reg_a, cpu.cpu_status), (0xFF, 0b1000_0000));
+    cpu.op_sbc_im(0x80);
+    assert_eq!((cpu.reg_a, cpu.cpu_status), (0x7E, 0b0000_0001));
+    cpu.op_sbc_im(0x80);
+    assert_eq!((cpu.reg_a, cpu.cpu_status), (0xFE, 0b1100_0000));
     //TODO: write SBC and higher tests
 }
