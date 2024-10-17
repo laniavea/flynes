@@ -4,7 +4,7 @@ use crate::cpu::instructions::shared_ops::*;
 // All obelisk 6502 instructions which starts with P, R or S.
 // Instructions here: SBC, SEC, SED, SEI, STA, STX, STY
 // More info: https://www.nesdev.org/obelisk-6502-guide/reference.html#PHA
-// TODO: Compete PHA, PHP, PLA, PLP, ROL, ROR, RTI, RYS
+// TODO: Compete PHA, PHP, PLA, PLP, ROL, ROR, RTI, RTS
 impl Cpu {
     pub fn op_sbc(&mut self, data_ref: u16) {
         let data = self.memory[data_ref as usize];

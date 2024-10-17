@@ -27,7 +27,7 @@ pub struct Cpu {
     reg_y: u8,
     cpu_status: u8,
     stack_pointer: u8,
-    _program_counter: u16,
+    program_counter: u16,
     operations: [Option<instructions::Operation>; 256],
     memory: [u8; 0xFFFF],
 }
@@ -41,7 +41,7 @@ impl Default for Cpu {
             reg_y: u8::default(),
             cpu_status: u8::default(),
             stack_pointer: u8::default(),
-            _program_counter: u16::default(),
+            program_counter: u16::default(),
             operations: instructions::init_all_operations(),
             memory: [0u8; 0xFFFF],
         }
@@ -57,7 +57,7 @@ impl Cpu {
             reg_y: u8::default(),
             cpu_status: u8::default(),
             stack_pointer: u8::default(),
-            _program_counter: u16::default(),
+            program_counter: u16::default(),
             operations: instructions::init_all_operations(),
             memory: [0u8; 0xFFFF],
         }

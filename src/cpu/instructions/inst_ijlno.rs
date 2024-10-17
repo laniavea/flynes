@@ -2,6 +2,10 @@ use crate::cpu::Cpu;
 use crate::cpu::instructions::shared_ops::*;
 
 impl Cpu {
+    pub fn op_jmp(&mut self, data_ref: u16) {
+        self.program_counter = data_ref;
+    }
+
     pub fn op_lda(&mut self, data_ref: u16) {
         self.reg_a = self.memory[data_ref as usize];
         self.cpu_status = update_zero_and_neg_flags(self.cpu_status, self.reg_a);

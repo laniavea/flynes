@@ -13,6 +13,7 @@ mod shared_ops;
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum OpType {
+    OpJMP,
     OpLDA,
     OpLdaIm,
     OpLDX,
@@ -75,6 +76,7 @@ impl Operation {
 impl Cpu {
     pub fn do_insturction(&mut self, memory_data: u16, instruction_type: OpType) {
         match instruction_type {
+            OpType::OpJMP => self.op_jmp(memory_data),
             OpType::OpLDA => self.op_lda(memory_data),
             OpType::OpLdaIm => self.op_lda_im(memory_data),
             OpType::OpLDX => self.op_ldx(memory_data),
@@ -103,6 +105,10 @@ impl Cpu {
 
 pub fn init_all_operations() -> [Option<Operation>; 256] {
     let mut operations: [Option<Operation>; 256] = [None; 256];
+
+    // JMP operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#RTS
+    operations[0x4C] = Some(Operation::new(3, 3, OpType::OpJMP, MemoryType::Absolute));
+    operations[0x6C] = Some(Operation::new(3, 5, OpType::OpJMP, MemoryType::Indirect));
 
     // LDA operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#LDA
     // Append data to register A
