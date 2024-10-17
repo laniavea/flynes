@@ -8,6 +8,7 @@ mod instructions;
 //
 // N - Negative
 // V - Overflow 
+// _ - Should always be 1
 // B - Break
 // D - Decimal
 // I - Interrupt
@@ -29,21 +30,21 @@ pub struct Cpu {
     stack_pointer: u8,
     program_counter: u16,
     operations: [Option<instructions::Operation>; 256],
-    memory: [u8; 0xFFFF],
+    memory: [u8; 0x10000],
 }
 
 impl Default for Cpu {
     //TODO: change default to values that should be (mb 0) and memory
     fn default() -> Cpu {
         Self {
-            reg_a: u8::default(),
-            reg_x: u8::default(),
-            reg_y: u8::default(),
-            cpu_status: u8::default(),
+            reg_a: 0,
+            reg_x: 0,
+            reg_y: 0,
+            cpu_status: 0b00100100,
             stack_pointer: u8::default(),
             program_counter: u16::default(),
             operations: instructions::init_all_operations(),
-            memory: [0u8; 0xFFFF],
+            memory: [0u8; 0x10000],
         }
     }
 }
@@ -59,7 +60,7 @@ impl Cpu {
             stack_pointer: u8::default(),
             program_counter: u16::default(),
             operations: instructions::init_all_operations(),
-            memory: [0u8; 0xFFFF],
+            memory: [0u8; 0x10000],
         }
     }
 

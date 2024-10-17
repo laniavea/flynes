@@ -134,5 +134,6 @@ fn test_prs_operations() {
     assert_eq!((cpu.reg_a, cpu.cpu_status), (0x7E, 0b0000_0001));
     cpu.op_sbc_im(0x80);
     assert_eq!((cpu.reg_a, cpu.cpu_status), (0xFE, 0b1100_0000));
-    //TODO: write SBC and higher tests
+
+    //TODO: write all tests
 }

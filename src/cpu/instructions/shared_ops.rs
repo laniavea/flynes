@@ -23,7 +23,6 @@ pub fn update_carry_flag(cpu_status: u8, value: u8) -> u8 {
 }
 
 #[inline(always)]
-//TODO: Test
 pub fn set_overflow_flag(cpu_status: u8, is_one: bool) -> u8 {
     if is_one {
         cpu_status | 0b0100_0000
@@ -119,6 +118,30 @@ fn test_set_carry_flag() {
 }
 
 #[test]
+fn test_set_overflow_flag() {
+    assert_eq!(set_overflow_flag(0b0000_0000, true), 0b0100_0000);
+    assert_eq!(set_overflow_flag(0b0000_0000, false), 0b0000_0000);
+    assert_eq!(set_overflow_flag(0b1111_1111, true), 0b1111_1111);
+    assert_eq!(set_overflow_flag(0b1111_1111, false), 0b1011_1111);
+}
+
+#[test]
 fn test_get_flag() {
-    //TODO: Write this test
+    let first_status = 0b1010_1010;
+    let second_status = 0b0101_0101;
+
+    for now_i in 0..=7 {
+        if now_i == 5 { continue }
+        if now_i % 2 == 0 {
+            assert!(!get_flag(first_status, now_i));
+        } else {
+            assert!(get_flag(first_status, now_i));
+        }
+
+        if now_i % 2 == 0 {
+            assert!(get_flag(second_status, now_i));
+        } else {
+            assert!(!get_flag(second_status, now_i));
+        }
+    }
 }
