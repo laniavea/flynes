@@ -22,6 +22,10 @@ pub enum OpType {
     OpLdyIm,
     OpLSR,
     OpLsrA,
+    OpROR,
+    OpRorA,
+    OpRTI,
+    OpRTS,
     OpSBC,
     OpSBCIm,
     OpSEC,
@@ -85,6 +89,10 @@ impl Cpu {
             OpType::OpLdyIm => self.op_ldy_im(memory_data),
             OpType::OpLSR => self.op_lsr(memory_data),
             OpType::OpLsrA => self.op_lsr_a(),
+            OpType::OpROR => self.op_ror(memory_data),
+            OpType::OpRorA => self.op_ror_a(),
+            OpType::OpRTI => self.op_rti(),
+            OpType::OpRTS => self.op_rts(),
             OpType::OpSBC => self.op_sbc(memory_data),
             OpType::OpSBCIm => self.op_sbc_im(memory_data),
             OpType::OpSEC => self.op_sec(),
@@ -106,7 +114,7 @@ impl Cpu {
 pub fn init_all_operations() -> [Option<Operation>; 256] {
     let mut operations: [Option<Operation>; 256] = [None; 256];
 
-    // JMP operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#RTS
+    // JMP operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#JMP
     operations[0x4C] = Some(Operation::new(3, 3, OpType::OpJMP, MemoryType::Absolute));
     operations[0x6C] = Some(Operation::new(3, 5, OpType::OpJMP, MemoryType::Indirect));
 
@@ -144,6 +152,22 @@ pub fn init_all_operations() -> [Option<Operation>; 256] {
     operations[0x56] = Some(Operation::new(2, 6, OpType::OpLSR, MemoryType::ZeroPageX));
     operations[0x4E] = Some(Operation::new(3, 6, OpType::OpLSR, MemoryType::Absolute));
     operations[0x5E] = Some(Operation::new(3, 7, OpType::OpLSR, MemoryType::AbsoluteX));
+
+    // ROR instructions - https://www.nesdev.org/obelisk-6502-guide/reference.html#ROR
+    // Right shift with carry manipulations
+    operations[0x6A] = Some(Operation::new(1, 2, OpType::OpRorA, MemoryType::Accumulator));
+    operations[0x66] = Some(Operation::new(2, 5, OpType::OpROR, MemoryType::ZeroPage));
+    operations[0x76] = Some(Operation::new(2, 6, OpType::OpROR, MemoryType::ZeroPageX));
+    operations[0x6E] = Some(Operation::new(3, 6, OpType::OpROR, MemoryType::Absolute));
+    operations[0x7E] = Some(Operation::new(3, 7, OpType::OpROR, MemoryType::AbsoluteX));
+
+    // RTI operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#RTI
+    // Pulls processor flag from the stack and then pull porgram counter from it
+    operations[0x40] = Some(Operation::new(1, 6, OpType::OpRTI, MemoryType::Implied));
+
+    // RTS operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#RTS
+    // Pulls program counter (minus one) from stack
+    operations[0x60] = Some(Operation::new(1, 6, OpType::OpRTS, MemoryType::Implied));
 
     // SBC operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
     // Substructs content of a memory locations to the accumulator

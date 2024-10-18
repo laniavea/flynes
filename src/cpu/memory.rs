@@ -18,7 +18,7 @@ pub enum MemoryType {
     IndirectY,
 }
 
-const BASE_STACK_POINTER: usize = 0x01FF;
+const BASE_STACK_POINTER: u16 = 0x01FF;
 
 // Memory Structure:
 // $0000 - $00FF -> ZeroPage (can be accessed with fewer bytes and cycles than other modules)
@@ -105,13 +105,18 @@ impl Cpu {
     /// Function to pop data from stack by stack pointer
     pub fn stack_pop(&mut self) -> u8 {
         self.stack_pointer = self.stack_pointer.wrapping_sub(1);
-        self.memory[BASE_STACK_POINTER - (self.stack_pointer as usize)]
+        self.read_mem(BASE_STACK_POINTER - (self.stack_pointer as u16))
     }
 
     /// Function to push data to stack by stack pointer
     pub fn stack_push(&mut self, value: u8) {
-        self.memory[BASE_STACK_POINTER - self.stack_pointer as usize] = value;
+        self.write_mem(BASE_STACK_POINTER - self.stack_pointer as u16, value);
         self.stack_pointer = self.stack_pointer.wrapping_add(1);
+    }
+
+    /// Function to pop data (2x 8bit vals in Little-endian order) from stack 
+    pub fn stack_pop_16b(&mut self) -> u16 {
+        (self.stack_pop() as u16) + ((self.stack_pop() as u16) << 8)
     }
 }
 
@@ -146,15 +151,15 @@ impl Cpu {
                 pointer + self.reg_y as u16
             },
             MemoryType::Indirect => {
-                self.read_mem(pointer) as u16 + ((self.read_mem(pointer.wrapping_add(1)) as u16) << 8)
+                self.read_mem_16b(pointer)
             },
             MemoryType::IndirectX => {
                 let zero_page_add = (self.reg_x + pointer as u8) as usize;
-                self.memory[zero_page_add] as u16 + ((self.memory[zero_page_add + 1] as u16) << 8)
+                self.read_mem_16b(zero_page_add as u16)
             },
             MemoryType::IndirectY => {
                 let zero_page_add = (self.reg_y + pointer as u8) as usize;
-                self.memory[zero_page_add] as u16 + ((self.memory[zero_page_add + 1] as u16) << 8)
+                self.read_mem_16b(zero_page_add as u16)
             },
             _ => {
                 unimplemented!();
@@ -164,7 +169,6 @@ impl Cpu {
 }
 
 #[test]
-//TODO: Repalce all memory operation to functions
 fn test_read_write_cpu_mem() {
     let mut cpu = Cpu::default();
 

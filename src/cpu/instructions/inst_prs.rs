@@ -4,10 +4,45 @@ use crate::cpu::instructions::shared_ops::*;
 // All obelisk 6502 instructions which starts with P, R or S.
 // Instructions here: SBC, SEC, SED, SEI, STA, STX, STY
 // More info: https://www.nesdev.org/obelisk-6502-guide/reference.html#PHA
-// TODO: Compete PHA, PHP, PLA, PLP, ROL, ROR, RTI, RTS
+// TODO: Compete PHA, PHP, PLA, PLP, ROL
 impl Cpu {
+    pub fn op_ror(&mut self, data_ref: u16) {
+        let mut now_mem = self.read_mem(data_ref);
+        if get_flag(self.cpu_status, 0) {
+            self.cpu_status = update_carry_flag(self.cpu_status, now_mem);
+            now_mem >>= 1;
+            now_mem += 0b1000_0000;
+        } else {
+            self.cpu_status = update_carry_flag(self.cpu_status, now_mem);
+            now_mem >>= 1;
+        }
+        self.write_mem(data_ref, now_mem);
+    }
+
+    pub fn op_ror_a(&mut self) {
+        if get_flag(self.cpu_status, 0) {
+            self.cpu_status = update_carry_flag(self.cpu_status, self.reg_a);
+            self.reg_a >>= 1;
+            self.reg_a += 0b1000_0000;
+        } else {
+            self.cpu_status = update_carry_flag(self.cpu_status, self.reg_a);
+            self.reg_a >>= 1;
+        }
+
+        self.cpu_status = update_zero_and_neg_flags(self.cpu_status, self.reg_a);
+    }
+
+    pub fn op_rti(&mut self) {
+        self.cpu_status = self.stack_pop();
+        self.program_counter = self.stack_pop_16b();
+    }
+
+    pub fn op_rts(&mut self) {
+        self.program_counter = self.stack_pop_16b().wrapping_add(1);
+    }
+
     pub fn op_sbc(&mut self, data_ref: u16) {
-        let data = self.memory[data_ref as usize];
+        let data = self.read_mem(data_ref);
         // Formula is A(ccumulator) - M(emory) - (C(arry) - 1)
         let temp_val = if get_flag(self.cpu_status, 0) {
             self.reg_a.wrapping_sub(data)
@@ -72,15 +107,15 @@ impl Cpu {
     }
 
     pub fn op_sta(&mut self, data_ref: u16) {
-        self.memory[data_ref as usize] = self.reg_a;
+        self.write_mem(data_ref, self.reg_a);
     }
 
     pub fn op_stx(&mut self, data_ref: u16) {
-        self.memory[data_ref as usize] = self.reg_x;
+        self.write_mem(data_ref, self.reg_x);
     }
 
     pub fn op_sty(&mut self, data_ref: u16) {
-        self.memory[data_ref as usize] = self.reg_y;
+        self.write_mem(data_ref, self.reg_y);
     }
 }
 
@@ -96,7 +131,7 @@ fn test_prs_operations() {
     cpu.op_stx(0xF000);
     cpu.op_sta(0x0F00);
 
-    assert_eq!((cpu.memory[0xFFA0], cpu.memory[0xF000], cpu.memory[0x0F00]), (127, 1, 255));
+    assert_eq!((cpu.read_mem(0xFFA0), cpu.read_mem(0xF000), cpu.read_mem(0x0F00)), (127, 1, 255));
 
     cpu.cpu_status = 0;
     cpu.op_sei();
@@ -135,5 +170,5 @@ fn test_prs_operations() {
     cpu.op_sbc_im(0x80);
     assert_eq!((cpu.reg_a, cpu.cpu_status), (0xFE, 0b1100_0000));
 
-    //TODO: write all tests
+    //TODO: write RTS, RTI, ROR tests
 }
