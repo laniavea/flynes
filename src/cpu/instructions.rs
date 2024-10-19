@@ -22,6 +22,12 @@ pub enum OpType {
     OpLdyIm,
     OpLSR,
     OpLsrA,
+    OpPHA,
+    OpPHP,
+    OpPLA,
+    OpPLP,
+    OpROL,
+    OpRolA,
     OpROR,
     OpRorA,
     OpRTI,
@@ -89,6 +95,12 @@ impl Cpu {
             OpType::OpLdyIm => self.op_ldy_im(memory_data),
             OpType::OpLSR => self.op_lsr(memory_data),
             OpType::OpLsrA => self.op_lsr_a(),
+            OpType::OpPHA => self.op_pha(),
+            OpType::OpPHP => self.op_php(),
+            OpType::OpPLA => self.op_pla(),
+            OpType::OpPLP => self.op_plp(),
+            OpType::OpROL => self.op_rol(memory_data),
+            OpType::OpRolA => self.op_rol_a(),
             OpType::OpROR => self.op_ror(memory_data),
             OpType::OpRorA => self.op_ror_a(),
             OpType::OpRTI => self.op_rti(),
@@ -145,6 +157,22 @@ pub fn init_all_operations() -> [Option<Operation>; 256] {
     operations[0xAC] = Some(Operation::new(3, 4, OpType::OpLDY, MemoryType::Absolute));
     operations[0xBC] = Some(Operation::new(3, 4, OpType::OpLDY, MemoryType::AbsoluteX));
 
+    // PHA operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#PHA
+    // Pushes register A to the stack
+    operations[0x48] = Some(Operation::new(1, 3, OpType::OpPHA, MemoryType::Implied));
+
+    // PHP operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#PHP
+    // Pushes cpu status to the stack
+    operations[0x08] = Some(Operation::new(1, 3, OpType::OpPHP, MemoryType::Implied));
+
+    // PLA operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#PLA
+    // Sets register A from the stack
+    operations[0x68] = Some(Operation::new(1, 4, OpType::OpPLA, MemoryType::Implied));
+
+    // PLP operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#PLP
+    // Sets processor status from the stack
+    operations[0x28] = Some(Operation::new(1, 4, OpType::OpPLP, MemoryType::Implied));
+
     // LSR operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#LSR
     // Perfomas logical shift right
     operations[0x4A] = Some(Operation::new(1, 2, OpType::OpLsrA, MemoryType::Accumulator));
@@ -153,6 +181,14 @@ pub fn init_all_operations() -> [Option<Operation>; 256] {
     operations[0x4E] = Some(Operation::new(3, 6, OpType::OpLSR, MemoryType::Absolute));
     operations[0x5E] = Some(Operation::new(3, 7, OpType::OpLSR, MemoryType::AbsoluteX));
 
+    // ROL instructions - https://www.nesdev.org/obelisk-6502-guide/reference.html#ROL
+    // Left shift with carry manipulations
+    operations[0x2A] = Some(Operation::new(1, 2, OpType::OpRolA, MemoryType::Accumulator));
+    operations[0x26] = Some(Operation::new(2, 5, OpType::OpROL, MemoryType::ZeroPage));
+    operations[0x36] = Some(Operation::new(2, 6, OpType::OpROL, MemoryType::ZeroPageX));
+    operations[0x2E] = Some(Operation::new(3, 6, OpType::OpROL, MemoryType::Absolute));
+    operations[0x3E] = Some(Operation::new(3, 7, OpType::OpROL, MemoryType::AbsoluteX));
+    
     // ROR instructions - https://www.nesdev.org/obelisk-6502-guide/reference.html#ROR
     // Right shift with carry manipulations
     operations[0x6A] = Some(Operation::new(1, 2, OpType::OpRorA, MemoryType::Accumulator));

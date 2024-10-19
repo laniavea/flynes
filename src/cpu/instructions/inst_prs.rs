@@ -4,8 +4,50 @@ use crate::cpu::instructions::shared_ops::*;
 // All obelisk 6502 instructions which starts with P, R or S.
 // Instructions here: SBC, SEC, SED, SEI, STA, STX, STY
 // More info: https://www.nesdev.org/obelisk-6502-guide/reference.html#PHA
-// TODO: Compete PHA, PHP, PLA, PLP, ROL
 impl Cpu {
+    pub fn op_pha(&mut self) {
+        self.stack_push(self.reg_a);
+    }
+
+    pub fn op_php(&mut self) {
+        self.stack_push(self.cpu_status);
+    }
+
+    pub fn op_pla(&mut self) {
+        self.reg_a = self.stack_pop();
+        self.cpu_status = update_zero_and_neg_flags(self.cpu_status, self.reg_a);
+    }
+
+    pub fn op_plp(&mut self) {
+        self.cpu_status = self.stack_pop();
+    }
+
+    pub fn op_rol(&mut self, data_ref: u16) {
+        let mut now_mem = self.read_mem(data_ref);
+        if get_flag(self.cpu_status, 0) {
+            self.cpu_status = update_carry_flag_by_7_bit(self.cpu_status, now_mem);
+            now_mem <<= 1;
+            now_mem += 0b0000_0001;
+        } else {
+            self.cpu_status = update_carry_flag_by_7_bit(self.cpu_status, now_mem);
+            now_mem <<= 1;
+        }
+        self.cpu_status = update_zero_and_neg_flags(self.cpu_status, now_mem);
+        self.write_mem(data_ref, now_mem);
+    }
+
+    pub fn op_rol_a(&mut self) {
+        if get_flag(self.cpu_status, 0) {
+            self.cpu_status = update_carry_flag_by_7_bit(self.cpu_status, self.reg_a);
+            self.reg_a <<= 1;
+            self.reg_a += 0b0000_0001;
+        } else {
+            self.cpu_status = update_carry_flag_by_7_bit(self.cpu_status, self.reg_a);
+            self.reg_a <<= 1;
+        }
+
+        self.cpu_status = update_zero_and_neg_flags(self.cpu_status, self.reg_a);
+    }
     pub fn op_ror(&mut self, data_ref: u16) {
         let mut now_mem = self.read_mem(data_ref);
         if get_flag(self.cpu_status, 0) {
@@ -16,6 +58,7 @@ impl Cpu {
             self.cpu_status = update_carry_flag(self.cpu_status, now_mem);
             now_mem >>= 1;
         }
+        self.cpu_status = update_zero_and_neg_flags(self.cpu_status, now_mem);
         self.write_mem(data_ref, now_mem);
     }
 
@@ -170,5 +213,5 @@ fn test_prs_operations() {
     cpu.op_sbc_im(0x80);
     assert_eq!((cpu.reg_a, cpu.cpu_status), (0xFE, 0b1100_0000));
 
-    //TODO: write RTS, RTI, ROR tests
+    //TODO: write RTS, RTI, ROR, ROL, PLP, PLA, PHP, PHA tests
 }

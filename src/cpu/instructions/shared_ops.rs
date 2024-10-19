@@ -14,6 +14,15 @@ pub fn update_zero_and_neg_flags(cpu_status: u8, op_result: u8) -> u8 {
 }
 
 #[inline(always)]
+pub fn update_carry_flag_by_7_bit(cpu_status: u8, value: u8) -> u8 {
+    if value & 0b1000_0000 != 0b1000_0000 {
+        cpu_status & 0b1111_1110
+    } else {
+        cpu_status | 0b0000_0001
+    }
+}
+
+#[inline(always)]
 pub fn update_carry_flag(cpu_status: u8, value: u8) -> u8 {
     if value & 0b0000_0001 != 0b0000_0001 {
         cpu_status & 0b1111_1110
@@ -91,6 +100,15 @@ fn test_update_carry_flag() {
     assert_eq!(update_carry_flag(0b0000_0000, 127), 0b0000_0001);
     assert_eq!(update_carry_flag(0b0000_0000, 128), 0b0000_0000);
     assert_eq!(update_carry_flag(0b0000_0000, 0), 0b0000_0000);
+}
+
+#[test]
+fn test_update_carry_flag_by_7_bit() {
+    assert_eq!(update_carry_flag_by_7_bit(0b0000_0000, 1), 0b0000_0000);
+    assert_eq!(update_carry_flag_by_7_bit(0b0000_0000, 127), 0b0000_0000);
+    assert_eq!(update_carry_flag_by_7_bit(0b0000_0000, 128), 0b0000_0001);
+    assert_eq!(update_carry_flag_by_7_bit(0b0000_0000, 255), 0b0000_0001);
+    assert_eq!(update_carry_flag_by_7_bit(0b0000_0000, 0), 0b0000_0000);
 }
 
 #[test]
