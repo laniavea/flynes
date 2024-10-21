@@ -230,3 +230,33 @@ fn test_read_write_cpu_mem() {
         assert_eq!(readed_data_16_b, readed_data_8b);
     }
 }
+
+#[test]
+fn test_stack_pop_push() {
+    let basic_stack_pointer: u8 = 0x10;
+    let mut cpu = Cpu {
+        stack_pointer: basic_stack_pointer,
+        ..Default::default()
+    };
+
+    let mut stack_ideal = [0u8; 256];
+    for now_i in 0..=0xFF {
+        cpu.stack_push(now_i);
+        stack_ideal[0xFF - now_i as usize] = now_i;
+    }
+    // Rotate left because stack is reversed and grows downward
+    stack_ideal.rotate_left(cpu.stack_pointer as usize);
+
+    assert_eq!(stack_ideal, cpu.memory[0x100..0x200]);
+
+    assert_eq!(cpu.stack_pop(), 0xFF);
+    assert_eq!(cpu.stack_pop_16b(), (0xFE + (0xFD<<8)));
+    assert_eq!(cpu.stack_pointer, basic_stack_pointer - 3);
+
+    for _ in 0..cpu.stack_pointer {
+        cpu.stack_pop();
+    }
+
+    assert_eq!(cpu.stack_pointer, 0x00);
+    assert_eq!(cpu.stack_pop_16b(), (0xFF - basic_stack_pointer as u16) + ((0xFF - basic_stack_pointer as u16 - 1) << 8));
+}

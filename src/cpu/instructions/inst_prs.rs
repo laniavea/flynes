@@ -2,7 +2,7 @@ use crate::cpu::Cpu;
 use crate::cpu::instructions::shared_ops::*;
 
 // All obelisk 6502 instructions which starts with P, R or S.
-// Instructions here: SBC, SEC, SED, SEI, STA, STX, STY
+// Instructions here: PHA, PHP, PLA, PLP, ROL, ROR, RTI, RTS, SBC, SEC, SED, SEI, STA, STX, STY
 // More info: https://www.nesdev.org/obelisk-6502-guide/reference.html#PHA
 impl Cpu {
     pub fn op_pha(&mut self) {
@@ -24,7 +24,7 @@ impl Cpu {
 
     pub fn op_rol(&mut self, data_ref: u16) {
         let mut now_mem = self.read_mem(data_ref);
-        if get_flag(self.cpu_status, 0) {
+        if get_flag_inl(self.cpu_status, 0) {
             self.cpu_status = update_carry_flag_by_7_bit(self.cpu_status, now_mem);
             now_mem <<= 1;
             now_mem += 0b0000_0001;
@@ -37,7 +37,7 @@ impl Cpu {
     }
 
     pub fn op_rol_a(&mut self) {
-        if get_flag(self.cpu_status, 0) {
+        if get_flag_inl(self.cpu_status, 0) {
             self.cpu_status = update_carry_flag_by_7_bit(self.cpu_status, self.reg_a);
             self.reg_a <<= 1;
             self.reg_a += 0b0000_0001;
@@ -48,9 +48,10 @@ impl Cpu {
 
         self.cpu_status = update_zero_and_neg_flags(self.cpu_status, self.reg_a);
     }
+
     pub fn op_ror(&mut self, data_ref: u16) {
         let mut now_mem = self.read_mem(data_ref);
-        if get_flag(self.cpu_status, 0) {
+        if get_flag_inl(self.cpu_status, 0) {
             self.cpu_status = update_carry_flag(self.cpu_status, now_mem);
             now_mem >>= 1;
             now_mem += 0b1000_0000;
@@ -63,7 +64,7 @@ impl Cpu {
     }
 
     pub fn op_ror_a(&mut self) {
-        if get_flag(self.cpu_status, 0) {
+        if get_flag_inl(self.cpu_status, 0) {
             self.cpu_status = update_carry_flag(self.cpu_status, self.reg_a);
             self.reg_a >>= 1;
             self.reg_a += 0b1000_0000;
@@ -87,7 +88,7 @@ impl Cpu {
     pub fn op_sbc(&mut self, data_ref: u16) {
         let data = self.read_mem(data_ref);
         // Formula is A(ccumulator) - M(emory) - (C(arry) - 1)
-        let temp_val = if get_flag(self.cpu_status, 0) {
+        let temp_val = if get_flag_inl(self.cpu_status, 0) {
             self.reg_a.wrapping_sub(data)
         } else {
             self.reg_a.wrapping_sub(data).wrapping_sub(1)
@@ -113,7 +114,7 @@ impl Cpu {
 
     pub fn op_sbc_im(&mut self, data: u16) {
         // Formula is A(ccumulator) - M(emory) - (C(arry) - 1)
-        let temp_val = if get_flag(self.cpu_status, 0) {
+        let temp_val = if get_flag_inl(self.cpu_status, 0) {
             self.reg_a.wrapping_sub(data as u8)
         } else {
             self.reg_a.wrapping_sub(data as u8).wrapping_sub(1)
@@ -166,6 +167,7 @@ impl Cpu {
 fn test_prs_operations() {
     let mut cpu = Cpu::new();
 
+    // STA, STX, STY instructions
     cpu.reg_x = 1;
     cpu.reg_y = 127;
     cpu.reg_a = 255;
@@ -176,6 +178,7 @@ fn test_prs_operations() {
 
     assert_eq!((cpu.read_mem(0xFFA0), cpu.read_mem(0xF000), cpu.read_mem(0x0F00)), (127, 1, 255));
 
+    // SEI, SEC, SED instructions
     cpu.cpu_status = 0;
     cpu.op_sei();
     cpu.op_sec();
@@ -213,5 +216,63 @@ fn test_prs_operations() {
     cpu.op_sbc_im(0x80);
     assert_eq!((cpu.reg_a, cpu.cpu_status), (0xFE, 0b1100_0000));
 
-    //TODO: write RTS, RTI, ROR, ROL, PLP, PLA, PHP, PHA tests
+    // RTS, RTI instructions
+    cpu.stack_pointer = 0x0;
+    for now_i in 0..=0xFF {
+        cpu.stack_push(now_i);
+    }
+
+    cpu.op_rts();
+    assert_eq!(cpu.program_counter, 0xFF + (0xFE << 8) + 1);
+
+    cpu.op_rti();
+    assert_eq!(cpu.cpu_status, 0xFD);
+    assert_eq!(cpu.program_counter, 0xFC + (0xFB << 8));
+
+    // Tested on https://skilldrick.github.io/easy6502/
+    //
+    // LDA #$5D
+    // ROR A
+    // ROR A
+    // ROL A
+    // ROL A
+    // ROL A
+    // ROL A
+    cpu.reg_a = 0b0101_1101;
+    cpu.set_flag(0, false);
+    cpu.op_ror_a();
+    assert_eq!(cpu.reg_a, 0b0010_1110);
+    assert!(cpu.get_flag(0));
+    cpu.op_ror_a();
+    assert!(!cpu.get_flag(0));
+    assert_eq!(cpu.reg_a, 0b1001_0111);
+
+    cpu.op_rol_a();
+    cpu.op_rol_a();
+    assert_eq!(cpu.reg_a, 0b0101_1101);
+    assert!(!cpu.get_flag(0));
+    cpu.op_rol_a();
+    cpu.op_rol_a();
+    assert!(cpu.get_flag(0));
+    assert_eq!(cpu.reg_a, 0b0111_0100);
+
+    // PLP, PLA, PHP, PHA instructions
+    cpu.stack_pointer = 0x0;
+    for _ in 0..=0xFF {
+        cpu.stack_push(0);
+    }
+
+    cpu.stack_pointer = 0x10;
+    cpu.reg_a = 0x01;
+    cpu.cpu_status = 0x02;
+
+    cpu.op_pha();
+    cpu.op_php();
+    assert_eq!(cpu.read_mem_16b(0x1FF - cpu.stack_pointer as u16 + 1), 0x02 + (0x01 << 8));
+    cpu.reg_a = 0;
+    cpu.cpu_status = 0;
+    cpu.op_pla();
+    cpu.op_plp();
+    // Reversed because PLA changes cpu_status
+    assert_eq!((cpu.reg_a, cpu.cpu_status), (0x02, 0x01));
 }

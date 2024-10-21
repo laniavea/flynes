@@ -68,7 +68,7 @@ pub fn set_carry_flag(cpu_status: u8, is_one: bool) -> u8 {
 }
 
 #[inline(always)]
-pub fn get_flag(cpu_status: u8, flag_to_find: u8) -> bool {
+pub fn get_flag_inl(cpu_status: u8, flag_to_find: u8) -> bool {
     // 7 6 5 4 3 2 1 0
     // N V _ B D I Z C
     // Read more in cpu.rs
@@ -144,22 +144,22 @@ fn test_set_overflow_flag() {
 }
 
 #[test]
-fn test_get_flag() {
+fn test_get_flag_inl() {
     let first_status = 0b1010_1010;
     let second_status = 0b0101_0101;
 
     for now_i in 0..=7 {
         if now_i == 5 { continue }
         if now_i % 2 == 0 {
-            assert!(!get_flag(first_status, now_i));
+            assert!(!get_flag_inl(first_status, now_i));
         } else {
-            assert!(get_flag(first_status, now_i));
+            assert!(get_flag_inl(first_status, now_i));
         }
 
         if now_i % 2 == 0 {
-            assert!(get_flag(second_status, now_i));
+            assert!(get_flag_inl(second_status, now_i));
         } else {
-            assert!(!get_flag(second_status, now_i));
+            assert!(!get_flag_inl(second_status, now_i));
         }
     }
 }
