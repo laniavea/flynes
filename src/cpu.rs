@@ -117,6 +117,7 @@ impl Cpu {
     }
 
     pub fn set_flag(&mut self, flag_to_set: u8, value_to_set: bool) {
+        //TODO: Check perfomance of just << instead match
         // 7 6 5 4 3 2 1 0
         // N V _ B D I Z C
 

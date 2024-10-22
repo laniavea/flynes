@@ -13,7 +13,11 @@ mod shared_ops;
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum OpType {
+    OpINC,
+    OpINX,
+    OpINY,
     OpJMP,
+    OpJSR,
     OpLDA,
     OpLdaIm,
     OpLDX,
@@ -22,6 +26,9 @@ pub enum OpType {
     OpLdyIm,
     OpLSR,
     OpLsrA,
+    OpNOP,
+    OpORA,
+    OpOraIm,
     OpPHA,
     OpPHP,
     OpPLA,
@@ -85,8 +92,13 @@ impl Operation {
 
 impl Cpu {
     pub fn do_insturction(&mut self, memory_data: u16, instruction_type: OpType) {
+        //TODO: Maybe split by bytes
         match instruction_type {
+            OpType::OpINC => self.op_inc(memory_data),
+            OpType::OpINX => self.op_inx(),
+            OpType::OpINY => self.op_iny(),
             OpType::OpJMP => self.op_jmp(memory_data),
+            OpType::OpJSR => self.op_jsr(memory_data),
             OpType::OpLDA => self.op_lda(memory_data),
             OpType::OpLdaIm => self.op_lda_im(memory_data),
             OpType::OpLDX => self.op_ldx(memory_data),
@@ -95,6 +107,9 @@ impl Cpu {
             OpType::OpLdyIm => self.op_ldy_im(memory_data),
             OpType::OpLSR => self.op_lsr(memory_data),
             OpType::OpLsrA => self.op_lsr_a(),
+            OpType::OpNOP => self.op_nop(),
+            OpType::OpORA => self.op_ora(memory_data),
+            OpType::OpOraIm => self.op_ora_im(memory_data),
             OpType::OpPHA => self.op_pha(),
             OpType::OpPHP => self.op_php(),
             OpType::OpPLA => self.op_pla(),
@@ -125,10 +140,29 @@ impl Cpu {
 
 pub fn init_all_operations() -> [Option<Operation>; 256] {
     let mut operations: [Option<Operation>; 256] = [None; 256];
+    // INC operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#INC
+    // Increments memory
+    operations[0xE6] = Some(Operation::new(2, 5, OpType::OpINC, MemoryType::ZeroPage));
+    operations[0xF6] = Some(Operation::new(2, 6, OpType::OpINC, MemoryType::ZeroPageX));
+    operations[0xEE] = Some(Operation::new(3, 6, OpType::OpINC, MemoryType::Absolute));
+    operations[0xFE] = Some(Operation::new(3, 7, OpType::OpINC, MemoryType::AbsoluteX));
+
+    // INX operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#INX
+    // Increments X register
+    operations[0xE8] = Some(Operation::new(1, 2, OpType::OpINX, MemoryType::Implied));
+
+    // INY operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#INY
+    // Increments Y register
+    operations[0xC8] = Some(Operation::new(1, 2, OpType::OpINY, MemoryType::Implied));
 
     // JMP operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#JMP
+    // Jumps to another location to run code
     operations[0x4C] = Some(Operation::new(3, 3, OpType::OpJMP, MemoryType::Absolute));
     operations[0x6C] = Some(Operation::new(3, 5, OpType::OpJMP, MemoryType::Indirect));
+
+    // JSR operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#JSR
+    // Pushed correct address to the stack and setes program counter to target memory
+    operations[0x20] = Some(Operation::new(3, 6, OpType::OpJSR, MemoryType::Absolute));
 
     // LDA operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#LDA
     // Append data to register A
@@ -157,6 +191,29 @@ pub fn init_all_operations() -> [Option<Operation>; 256] {
     operations[0xAC] = Some(Operation::new(3, 4, OpType::OpLDY, MemoryType::Absolute));
     operations[0xBC] = Some(Operation::new(3, 4, OpType::OpLDY, MemoryType::AbsoluteX));
 
+    // LSR operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#LSR
+    // Perfomas logical shift right
+    operations[0x4A] = Some(Operation::new(1, 2, OpType::OpLsrA, MemoryType::Accumulator));
+    operations[0x46] = Some(Operation::new(2, 5, OpType::OpLSR, MemoryType::ZeroPage));
+    operations[0x56] = Some(Operation::new(2, 6, OpType::OpLSR, MemoryType::ZeroPageX));
+    operations[0x4E] = Some(Operation::new(3, 6, OpType::OpLSR, MemoryType::Absolute));
+    operations[0x5E] = Some(Operation::new(3, 7, OpType::OpLSR, MemoryType::AbsoluteX));
+
+    // NOP operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#NOP
+    // No operation, just inc of program counter and cpu cycles
+    operations[0xEA] = Some(Operation::new(1, 2, OpType::OpNOP, MemoryType::Implied));
+
+    // ORA operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#ORA
+    // Inclusive OR between accumulator and other memory
+    operations[0x09] = Some(Operation::new(2, 2, OpType::OpOraIm, MemoryType::Immediate));
+    operations[0x05] = Some(Operation::new(2, 3, OpType::OpORA, MemoryType::ZeroPage));
+    operations[0x15] = Some(Operation::new(2, 4, OpType::OpORA, MemoryType::ZeroPageX));
+    operations[0x0D] = Some(Operation::new(3, 4, OpType::OpORA, MemoryType::Absolute));
+    operations[0x1D] = Some(Operation::new(3, 4, OpType::OpORA, MemoryType::AbsoluteX));
+    operations[0x19] = Some(Operation::new(3, 4, OpType::OpORA, MemoryType::AbsoluteY));
+    operations[0x01] = Some(Operation::new(2, 6, OpType::OpORA, MemoryType::IndirectX));
+    operations[0x11] = Some(Operation::new(2, 5, OpType::OpORA, MemoryType::IndirectY));
+
     // PHA operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#PHA
     // Pushes register A to the stack
     operations[0x48] = Some(Operation::new(1, 3, OpType::OpPHA, MemoryType::Implied));
@@ -172,14 +229,6 @@ pub fn init_all_operations() -> [Option<Operation>; 256] {
     // PLP operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#PLP
     // Sets processor status from the stack
     operations[0x28] = Some(Operation::new(1, 4, OpType::OpPLP, MemoryType::Implied));
-
-    // LSR operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#LSR
-    // Perfomas logical shift right
-    operations[0x4A] = Some(Operation::new(1, 2, OpType::OpLsrA, MemoryType::Accumulator));
-    operations[0x46] = Some(Operation::new(2, 5, OpType::OpLSR, MemoryType::ZeroPage));
-    operations[0x56] = Some(Operation::new(2, 6, OpType::OpLSR, MemoryType::ZeroPageX));
-    operations[0x4E] = Some(Operation::new(3, 6, OpType::OpLSR, MemoryType::Absolute));
-    operations[0x5E] = Some(Operation::new(3, 7, OpType::OpLSR, MemoryType::AbsoluteX));
 
     // ROL instructions - https://www.nesdev.org/obelisk-6502-guide/reference.html#ROL
     // Left shift with carry manipulations

@@ -105,18 +105,24 @@ impl Cpu {
     /// Function to pop data from stack by stack pointer
     pub fn stack_pop(&mut self) -> u8 {
         self.stack_pointer = self.stack_pointer.wrapping_sub(1);
-        self.read_mem(BASE_STACK_POINTER - (self.stack_pointer as u16))
+        self.memory[(BASE_STACK_POINTER - self.stack_pointer as u16) as usize]
     }
 
     /// Function to push data to stack by stack pointer
     pub fn stack_push(&mut self, value: u8) {
-        self.write_mem(BASE_STACK_POINTER - self.stack_pointer as u16, value);
+        self.memory[(BASE_STACK_POINTER - self.stack_pointer as u16) as usize] = value;
         self.stack_pointer = self.stack_pointer.wrapping_add(1);
     }
 
     /// Function to pop data (2x 8bit vals in Little-endian order) from stack 
     pub fn stack_pop_16b(&mut self) -> u16 {
         (self.stack_pop() as u16) + ((self.stack_pop() as u16) << 8)
+    }
+
+    /// Function to push (2x 8bit values in Little-endian order) to stack
+    pub fn stack_push_16b(&mut self, value: u16) {
+        self.stack_push((value >> 8) as u8);
+        self.stack_push(value as u8);
     }
 }
 
@@ -233,30 +239,46 @@ fn test_read_write_cpu_mem() {
 
 #[test]
 fn test_stack_pop_push() {
-    let basic_stack_pointer: u8 = 0x10;
-    let mut cpu = Cpu {
-        stack_pointer: basic_stack_pointer,
-        ..Default::default()
-    };
+    let mut seed: u32 = 52;
+    for _ in 0..1000 {
+        // PRNG
+        let mut num = seed;
+        num ^= num << 13;
+        num ^= num >> 17;
+        num ^= num << 5;
+        seed = num;
 
-    let mut stack_ideal = [0u8; 256];
-    for now_i in 0..=0xFF {
-        cpu.stack_push(now_i);
-        stack_ideal[0xFF - now_i as usize] = now_i;
+        let basic_stack_pointer: u8 = (num % 256) as u8;
+        let mut cpu = Cpu {
+            stack_pointer: basic_stack_pointer,
+            ..Default::default()
+        };
+
+        let mut stack_ideal = [0u8; 256];
+        for now_i in 0..=0xFF {
+            cpu.stack_push(now_i);
+            stack_ideal[0xFF - now_i as usize] = now_i;
+        }
+        // Rotate left because stack is reversed and grows downward
+        stack_ideal.rotate_left(cpu.stack_pointer as usize);
+
+        assert_eq!(stack_ideal, cpu.memory[0x100..0x200]);
+
+        assert_eq!(cpu.stack_pop(), 0xFF);
+        assert_eq!(cpu.stack_pop_16b(), (0xFE + (0xFD << 8)));
+        assert_eq!(cpu.stack_pointer, basic_stack_pointer.wrapping_sub(3));
+
+        for _ in 0..cpu.stack_pointer {
+            cpu.stack_pop();
+        }
+
+        assert_eq!(cpu.stack_pointer, 0x00);
+        assert_eq!(cpu.stack_pop_16b(), (0xFF - basic_stack_pointer as u16) + ((0xFF - basic_stack_pointer.wrapping_add(1) as u16) << 8));
+
+        cpu.stack_push_16b(0x65 + (0x66 << 8));
+        cpu.stack_push_16b(0x67 + (0x68 << 8));
+        assert_eq!(cpu.stack_pop_16b(), 0x67 + (0x68 << 8));
+        assert_eq!(cpu.stack_pop_16b(), 0x65 + (0x66 << 8));
+        assert_eq!(cpu.stack_pointer, 0xFE)
     }
-    // Rotate left because stack is reversed and grows downward
-    stack_ideal.rotate_left(cpu.stack_pointer as usize);
-
-    assert_eq!(stack_ideal, cpu.memory[0x100..0x200]);
-
-    assert_eq!(cpu.stack_pop(), 0xFF);
-    assert_eq!(cpu.stack_pop_16b(), (0xFE + (0xFD<<8)));
-    assert_eq!(cpu.stack_pointer, basic_stack_pointer - 3);
-
-    for _ in 0..cpu.stack_pointer {
-        cpu.stack_pop();
-    }
-
-    assert_eq!(cpu.stack_pointer, 0x00);
-    assert_eq!(cpu.stack_pop_16b(), (0xFF - basic_stack_pointer as u16) + ((0xFF - basic_stack_pointer as u16 - 1) << 8));
 }
