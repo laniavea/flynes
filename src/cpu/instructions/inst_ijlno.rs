@@ -23,8 +23,8 @@ impl Cpu {
     }
 
     pub fn op_jsr(&mut self, data_ref: u16) {
-        self.stack_push_16b(data_ref.wrapping_add(1));
-        self.program_counter = self.read_mem_16b(data_ref);
+        self.stack_push_16b(self.program_counter.wrapping_add(2));
+        self.program_counter = data_ref;
     }
 
     pub fn op_lda(&mut self, data_ref: u16) {
@@ -84,4 +84,40 @@ impl Cpu {
     }
 }
 
-//TODO: Write tests
+#[test]
+fn test_ijlno_operations() {
+    let mut cpu = Cpu::default();
+
+    cpu.op_lda_im(0b0101_0101);
+    cpu.op_ora_im(0b1010_1010);
+    assert_eq!(cpu.reg_a, 0b1111_1111);
+    assert!(cpu.get_flag(7));
+
+    cpu.op_lda(0xFFFF);
+    cpu.op_ora(0xFFFF);
+    assert_eq!(cpu.reg_a, 0b0000_0000);
+    assert!(cpu.get_flag(1));
+
+    cpu.op_lda_im(0b0000_0001);
+    cpu.op_lsr_a();
+    assert_eq!(cpu.reg_a, 0);
+    assert!(cpu.get_flag(0));
+
+    cpu.op_ldx_im(0x10);
+    cpu.op_ldy_im(0x11);
+    assert!(cpu.reg_x == cpu.reg_y - 1);
+
+    cpu.op_jmp(0xFFFF);
+    assert_eq!(cpu.program_counter, 0xFFFF);
+
+    cpu.op_jsr(0x1111);
+    assert_eq!(cpu.program_counter, 0x1111);
+    assert_eq!(cpu.stack_pop_16b(), 0x01);
+
+    cpu.op_inx();
+    cpu.op_iny();
+
+    assert_eq!((cpu.reg_x, cpu.reg_y), (0x11, 0x12));
+    cpu.op_inc(0xFFFF);
+    assert_eq!(cpu.read_mem(0xFFFF), 1);
+}
