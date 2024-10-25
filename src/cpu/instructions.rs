@@ -13,6 +13,11 @@ mod shared_ops;
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum OpType {
+    OpDEC,
+    OpDEX,
+    OpDEY,
+    OpEOR,
+    OpEorIm,
     OpINC,
     OpINX,
     OpINY,
@@ -94,6 +99,11 @@ impl Cpu {
     pub fn do_insturction(&mut self, memory_data: u16, instruction_type: OpType) {
         //TODO: Maybe split by bytes
         match instruction_type {
+            OpType::OpDEC => self.op_dec(memory_data),
+            OpType::OpDEX => self.op_dex(),
+            OpType::OpDEY => self.op_dey(),
+            OpType::OpEOR => self.op_eor(memory_data),
+            OpType::OpEorIm => self.op_eor_im(memory_data),
             OpType::OpINC => self.op_inc(memory_data),
             OpType::OpINX => self.op_inx(),
             OpType::OpINY => self.op_iny(),
@@ -140,6 +150,33 @@ impl Cpu {
 
 pub fn init_all_operations() -> [Option<Operation>; 256] {
     let mut operations: [Option<Operation>; 256] = [None; 256];
+
+    // DEC operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#DEC
+    // Decrement of memory
+    operations[0xC6] = Some(Operation::new(2, 5, OpType::OpDEC, MemoryType::ZeroPage));
+    operations[0xD6] = Some(Operation::new(2, 6, OpType::OpDEC, MemoryType::ZeroPageX));
+    operations[0xCE] = Some(Operation::new(3, 6, OpType::OpDEC, MemoryType::Absolute));
+    operations[0xDE] = Some(Operation::new(3, 7, OpType::OpDEC, MemoryType::AbsoluteX));
+
+    // DEX operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#DEX
+    // Decrement of X reg
+    operations[0xCA] = Some(Operation::new(1, 2, OpType::OpDEX, MemoryType::Implied));
+
+    // DEY operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#DEY
+    // Decrement of Y reg
+    operations[0x88] = Some(Operation::new(1, 2, OpType::OpDEY, MemoryType::Implied));
+
+    // EOR operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#EOR
+    // XOR
+    operations[0x49] = Some(Operation::new(2, 2, OpType::OpEorIm, MemoryType::Immediate));
+    operations[0x45] = Some(Operation::new(2, 3, OpType::OpEOR, MemoryType::ZeroPage));
+    operations[0x55] = Some(Operation::new(2, 4, OpType::OpEOR, MemoryType::ZeroPageX));
+    operations[0x4D] = Some(Operation::new(3, 4, OpType::OpEOR, MemoryType::Absolute));
+    operations[0x5D] = Some(Operation::new(3, 4, OpType::OpEOR, MemoryType::AbsoluteX));
+    operations[0x59] = Some(Operation::new(3, 4, OpType::OpEOR, MemoryType::AbsoluteY));
+    operations[0x41] = Some(Operation::new(2, 6, OpType::OpEOR, MemoryType::IndirectX));
+    operations[0x51] = Some(Operation::new(2, 5, OpType::OpEOR, MemoryType::IndirectY));
+
     // INC operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#INC
     // Increments memory
     operations[0xE6] = Some(Operation::new(2, 5, OpType::OpINC, MemoryType::ZeroPage));

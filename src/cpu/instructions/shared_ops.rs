@@ -67,22 +67,31 @@ pub fn set_carry_flag(cpu_status: u8, is_one: bool) -> u8 {
     }
 }
 
+// #[inline(always)]
+// pub fn get_flag_inl(cpu_status: u8, flag_to_find: u8) -> bool {
+//     // 7 6 5 4 3 2 1 0
+//     // N V _ B D I Z C
+//     // Read more in cpu.rs
+//     match flag_to_find {
+//         0 => cpu_status & 0b0000_0001 == 0b0000_0001,
+//         1 => cpu_status & 0b0000_0010 == 0b0000_0010,
+//         2 => cpu_status & 0b0000_0100 == 0b0000_0100,
+//         3 => cpu_status & 0b0000_1000 == 0b0000_1000,
+//         4 => cpu_status & 0b0001_0000 == 0b0001_0000,
+//         5 => unreachable!(),
+//         6 => cpu_status & 0b0100_0000 == 0b0100_0000,
+//         7 => cpu_status & 0b1000_0000 == 0b1000_0000,
+//         _ => unreachable!(),
+//     }
+// }
+
 #[inline(always)]
 pub fn get_flag_inl(cpu_status: u8, flag_to_find: u8) -> bool {
     // 7 6 5 4 3 2 1 0
     // N V _ B D I Z C
     // Read more in cpu.rs
-    match flag_to_find {
-        0 => cpu_status & 0b0000_0001 == 0b0000_0001,
-        1 => cpu_status & 0b0000_0010 == 0b0000_0010,
-        2 => cpu_status & 0b0000_0100 == 0b0000_0100,
-        3 => cpu_status & 0b0000_1000 == 0b0000_1000,
-        4 => cpu_status & 0b0001_0000 == 0b0001_0000,
-        5 => unreachable!(),
-        6 => cpu_status & 0b0100_0000 == 0b0100_0000,
-        7 => cpu_status & 0b1000_0000 == 0b1000_0000,
-        _ => unreachable!(),
-    }
+    if flag_to_find > 7 { panic!("Unreachable flag tried to be setted for cpu status") }
+    (cpu_status >> flag_to_find) % 2 == 1
 }
 
 #[test]
@@ -162,4 +171,6 @@ fn test_get_flag_inl() {
             assert!(!get_flag_inl(second_status, now_i));
         }
     }
+
+    assert_eq!(!first_status, second_status);
 }

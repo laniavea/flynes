@@ -103,49 +103,24 @@ impl Cpu {
     pub fn get_flag(&self, flag_to_find: u8) -> bool {
         // 7 6 5 4 3 2 1 0
         // N V _ B D I Z C
-        match flag_to_find {
-            0 => self.cpu_status & 0b0000_0001 == 0b0000_0001,
-            1 => self.cpu_status & 0b0000_0010 == 0b0000_0010,
-            2 => self.cpu_status & 0b0000_0100 == 0b0000_0100,
-            3 => self.cpu_status & 0b0000_1000 == 0b0000_1000,
-            4 => self.cpu_status & 0b0001_0000 == 0b0001_0000,
-            5 => self.cpu_status & 0b0010_0000 == 0b0010_0000,
-            6 => self.cpu_status & 0b0100_0000 == 0b0100_0000,
-            7 => self.cpu_status & 0b1000_0000 == 0b1000_0000,
-            _ => unreachable!(),
-        }
+        if flag_to_find > 7 { panic!("Unreachable flag tried to be setted for cpu status") }
+        (self.cpu_status >> flag_to_find) % 2 == 1
     }
 
     pub fn set_flag(&mut self, flag_to_set: u8, value_to_set: bool) {
-        //TODO: Check perfomance of just << instead match
         // 7 6 5 4 3 2 1 0
         // N V _ B D I Z C
 
+        if flag_to_set > 7 { panic!("Unreachable flag tried to be setted for cpu status") }
         if value_to_set {
-            match flag_to_set {
-                0 => self.cpu_status |= 0b0000_0001,
-                1 => self.cpu_status |= 0b0000_0010,
-                2 => self.cpu_status |= 0b0000_0100,
-                3 => self.cpu_status |= 0b0000_1000,
-                4 => self.cpu_status |= 0b0001_0000,
-                5 => self.cpu_status |= 0b0010_0000,
-                6 => self.cpu_status |= 0b0100_0000,
-                7 => self.cpu_status |= 0b1000_0000,
-                _ => unreachable!(),
-            };
-        } else { 
-            match flag_to_set {
-                0 => self.cpu_status &= 0b1111_1110,
-                1 => self.cpu_status &= 0b1111_1101,
-                2 => self.cpu_status &= 0b1111_1011,
-                3 => self.cpu_status &= 0b1111_0111,
-                4 => self.cpu_status &= 0b1110_1111,
-                5 => self.cpu_status &= 0b1101_1111,
-                6 => self.cpu_status &= 0b1011_1111,
-                7 => self.cpu_status &= 0b0111_1111,
-                _ => unreachable!(),
-            };
+            self.cpu_status |= 0b0000_0001 << flag_to_set;
+        } else {
+            self.cpu_status &= !(0b0000_0001 << flag_to_set);
         }
+    }
+
+    pub fn get_cpu_status(&self) -> u8 {
+        self.cpu_status
     }
 }
 
@@ -219,5 +194,10 @@ fn test_get_flag() {
 
         cpu.set_flag(now_i, false);
         assert!(!cpu.get_flag(now_i));
+
+        cpu.set_flag(now_i, true);
+        assert!(cpu.get_flag(now_i));
     }
+
+    assert_eq!(cpu.cpu_status, 0b1111_1111);
 }
