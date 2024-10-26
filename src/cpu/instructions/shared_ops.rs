@@ -67,23 +67,23 @@ pub fn set_carry_flag(cpu_status: u8, is_one: bool) -> u8 {
     }
 }
 
-// #[inline(always)]
-// pub fn get_flag_inl(cpu_status: u8, flag_to_find: u8) -> bool {
-//     // 7 6 5 4 3 2 1 0
-//     // N V _ B D I Z C
-//     // Read more in cpu.rs
-//     match flag_to_find {
-//         0 => cpu_status & 0b0000_0001 == 0b0000_0001,
-//         1 => cpu_status & 0b0000_0010 == 0b0000_0010,
-//         2 => cpu_status & 0b0000_0100 == 0b0000_0100,
-//         3 => cpu_status & 0b0000_1000 == 0b0000_1000,
-//         4 => cpu_status & 0b0001_0000 == 0b0001_0000,
-//         5 => unreachable!(),
-//         6 => cpu_status & 0b0100_0000 == 0b0100_0000,
-//         7 => cpu_status & 0b1000_0000 == 0b1000_0000,
-//         _ => unreachable!(),
-//     }
-// }
+#[inline(always)]
+pub fn set_zero_flag(cpu_status: u8, is_one: bool) -> u8 {
+    if is_one {
+        cpu_status | 0b0000_0010
+    } else {
+        cpu_status & 0b1111_1101
+    }
+}
+
+#[inline(always)]
+pub fn set_negative_flag(cpu_status: u8, is_one: bool) -> u8 {
+    if is_one {
+        cpu_status | 0b1000_0000
+    } else {
+        cpu_status & 0b0111_1111
+    }
+}
 
 #[inline(always)]
 pub fn get_flag_inl(cpu_status: u8, flag_to_find: u8) -> bool {
@@ -150,6 +150,22 @@ fn test_set_overflow_flag() {
     assert_eq!(set_overflow_flag(0b0000_0000, false), 0b0000_0000);
     assert_eq!(set_overflow_flag(0b1111_1111, true), 0b1111_1111);
     assert_eq!(set_overflow_flag(0b1111_1111, false), 0b1011_1111);
+}
+
+#[test]
+fn test_set_zero_flag() {
+    assert_eq!(set_zero_flag(0b0000_0000, true), 0b0000_0010);
+    assert_eq!(set_zero_flag(0b0000_0000, false), 0b0000_0000);
+    assert_eq!(set_zero_flag(0b1111_1111, true), 0b1111_1111);
+    assert_eq!(set_zero_flag(0b1111_1111, false), 0b1111_1101);
+}
+
+#[test]
+fn test_set_negative_flag() {
+    assert_eq!(set_negative_flag(0b0000_0000, true), 0b1000_0000);
+    assert_eq!(set_negative_flag(0b0000_0000, false), 0b0000_0000);
+    assert_eq!(set_negative_flag(0b1111_1111, true), 0b1111_1111);
+    assert_eq!(set_negative_flag(0b1111_1111, false), 0b0111_1111);
 }
 
 #[test]

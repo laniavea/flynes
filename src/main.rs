@@ -20,19 +20,18 @@ fn test_smth_fn() {
     //
     // let now_t = Instant::now();
     //
+    // let test_commands: Vec<u8> = vec![0xC0, 0xC0];
+    // cpu.run_cpu(test_commands);
+    //
     // let mut seed: u32 = 52;
     // for i in 0..100_000_000 {
+    //     let test_commands: Vec<u8> = vec![0xC0, 0xC0];
+    //     cpu.run_cpu(test_commands);
     //     let mut num = seed;
     //     num ^= num << 13;
     //     num ^= num >> 17;
     //     num ^= num << 5;
     //     seed = num;
-    //
-    //     if i % 5 == 0 {
-    //         cpu.set_flag((num % 8) as u8, num % 2 == 1 )
-    //     } else {
-    //         let _ = cpu.get_flag((num % 8) as u8);
-    //     }
     // }
     //
     // let mark = now_t.elapsed();

@@ -13,6 +13,16 @@ mod shared_ops;
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum OpType {
+    OpCLC,
+    OpCLD,
+    OpCLI,
+    OpCLV,
+    OpCMP,
+    OpCmpIm,
+    OpCPX,
+    OpCpxIm,
+    OpCPY,
+    OpCpyIm,
     OpDEC,
     OpDEX,
     OpDEY,
@@ -99,6 +109,16 @@ impl Cpu {
     pub fn do_insturction(&mut self, memory_data: u16, instruction_type: OpType) {
         //TODO: Maybe split by bytes
         match instruction_type {
+            OpType::OpCLC => self.op_clc(),
+            OpType::OpCLD => self.op_cld(),
+            OpType::OpCLI => self.op_cli(),
+            OpType::OpCLV => self.op_clv(),
+            OpType::OpCMP => self.op_cmp(memory_data),
+            OpType::OpCmpIm => self.op_cmp_im(memory_data),
+            OpType::OpCPX => self.op_cpx(memory_data),
+            OpType::OpCpxIm => self.op_cpx_im(memory_data),
+            OpType::OpCPY => self.op_cpy(memory_data),
+            OpType::OpCpyIm => self.op_cpy_im(memory_data),
             OpType::OpDEC => self.op_dec(memory_data),
             OpType::OpDEX => self.op_dex(),
             OpType::OpDEY => self.op_dey(),
@@ -150,6 +170,45 @@ impl Cpu {
 
 pub fn init_all_operations() -> [Option<Operation>; 256] {
     let mut operations: [Option<Operation>; 256] = [None; 256];
+
+    // CLC operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#CLC
+    // Sets carry flag to 0
+    operations[0x18] = Some(Operation::new(1,  2, OpType::OpCLC, MemoryType::Implied));
+
+    // CLD operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#CLD
+    // Sets decimal flag to 0
+    operations[0xD8] = Some(Operation::new(1,  2, OpType::OpCLD, MemoryType::Implied));
+
+    // CLI operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#CLI
+    // Sets interrupt flag to 0
+    operations[0x58] = Some(Operation::new(1,  2, OpType::OpCLI, MemoryType::Implied));
+
+    // CLV operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#CLV
+    // Sets overflow flag to 0
+    operations[0xB8] = Some(Operation::new(1,  2, OpType::OpCLV, MemoryType::Implied));
+
+    // CMP operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#CMP
+    // Compare memory to register A and sets flags
+    operations[0xC9] = Some(Operation::new(2, 2, OpType::OpCmpIm, MemoryType::Immediate));
+    operations[0xC5] = Some(Operation::new(2, 3, OpType::OpCMP, MemoryType::ZeroPage));
+    operations[0xD5] = Some(Operation::new(2, 4, OpType::OpCMP, MemoryType::ZeroPageX));
+    operations[0xCD] = Some(Operation::new(3, 4, OpType::OpCMP, MemoryType::Absolute));
+    operations[0xDD] = Some(Operation::new(3, 4, OpType::OpCMP, MemoryType::AbsoluteX));
+    operations[0xD9] = Some(Operation::new(3, 4, OpType::OpCMP, MemoryType::AbsoluteY));
+    operations[0xC1] = Some(Operation::new(2, 6, OpType::OpCMP, MemoryType::IndirectX));
+    operations[0xD1] = Some(Operation::new(2, 5, OpType::OpCMP, MemoryType::IndirectY));
+
+    // CPX operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#CPX
+    // Compare memory to register X and sets flags
+    operations[0xE0] = Some(Operation::new(2, 2, OpType::OpCpxIm, MemoryType::Immediate));
+    operations[0xE4] = Some(Operation::new(2, 3, OpType::OpCPX, MemoryType::ZeroPage));
+    operations[0xEC] = Some(Operation::new(3, 4, OpType::OpCPX, MemoryType::Absolute));
+
+    // CPY operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#CPY
+    // Compare memory to register Y and sets flags
+    operations[0xC0] = Some(Operation::new(2, 2, OpType::OpCpyIm, MemoryType::Immediate));
+    operations[0xC4] = Some(Operation::new(2, 3, OpType::OpCPY, MemoryType::ZeroPage));
+    operations[0xCC] = Some(Operation::new(3, 4, OpType::OpCPY, MemoryType::Absolute));
 
     // DEC operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#DEC
     // Decrement of memory
