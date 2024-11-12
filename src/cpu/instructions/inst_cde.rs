@@ -42,7 +42,6 @@ impl Cpu {
         self.compare_it(self.reg_y, data as u8);
     }
 
-    // TODO: RECHECK NEGATIVE FLAG can be wrong
     pub fn op_dec(&mut self, data_ref: u16) {
         let now_data = self.read_mem(data_ref).wrapping_sub(1);
         self.cpu_status = update_zero_and_neg_flags(self.cpu_status, now_data);
@@ -87,3 +86,55 @@ impl Cpu {
     }
 }
 
+#[test]
+fn test_cde_operations() {
+    let mut cpu = Cpu {
+        cpu_status: 0b1111_1111,
+        ..Default::default()
+    };
+
+    cpu.op_clv();
+    cpu.op_clc();
+    cpu.op_cld();
+    cpu.op_cli();
+    assert_eq!(cpu.cpu_status, 0b1011_0010);
+    cpu.op_clv();
+    cpu.op_clc();
+    cpu.op_cld();
+    cpu.op_cli();
+    assert_eq!(cpu.cpu_status, 0b1011_0010);
+
+    cpu.cpu_status = 0b0000_0000;
+    cpu.reg_a = 0xFF;
+    cpu.write_mem(0xFFFF, 0x01);
+    cpu.op_cmp(0xFFFF);
+    assert_eq!(cpu.cpu_status, 0b1000_0001);
+
+    cpu.cpu_status = 0b0000_0000;
+    cpu.reg_x = 0x01;
+    cpu.op_cpx_im(0x10);
+    assert_eq!(cpu.cpu_status, 0b1000_0000);
+
+    cpu.cpu_status = 0b0000_0000;
+    cpu.reg_y = 0xFF;
+    cpu.op_cpy_im(0xFF);
+    assert_eq!(cpu.cpu_status, 0b0000_0011);
+
+    cpu.write_mem(0xFFFF, 0x01);
+    cpu.op_dec(0xFFFF);
+    cpu.op_dec(0xFFFF);
+    assert_eq!(0xFF, cpu.read_mem(0xFFFF));
+
+    cpu.reg_x = 0b0000_0000;
+    cpu.op_dex();
+    assert_eq!(cpu.reg_x, 0b1111_1111);
+
+    cpu.reg_y = 0b1111_1111;
+    cpu.op_dey();
+    assert_eq!(cpu.reg_y, 0b1111_1110);
+
+    cpu.reg_a = 0b1001_1001;
+    cpu.op_eor_im(0b0101_0111);
+    assert_eq!(cpu.reg_a, 0b1100_1110)
+
+}

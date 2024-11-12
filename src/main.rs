@@ -1,16 +1,19 @@
-use log::info;
+extern crate pretty_env_logger;
+#[macro_use] extern crate log;
 
 pub mod cpu;
 
 fn main() {
+    pretty_env_logger::init();
+
     test_smth_fn();
 
     let mut cpu = cpu::Cpu::default();
+    info!("CPU module created with next size: {:?} bytes", size_of_val(&cpu));
 
     let test_commands: Vec<u8> = vec![0xA9, 0xFF, 0x85, 0x00, 0xA9, 0x00, 0xA9, 0x01, 0x4A];
 
     cpu.run_cpu(test_commands);
-    info!("CPU module created with next size: {:?} bytes", size_of_val(&cpu));
 }
 
 fn test_smth_fn() {

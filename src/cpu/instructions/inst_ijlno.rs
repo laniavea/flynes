@@ -2,7 +2,6 @@ use crate::cpu::Cpu;
 use crate::cpu::instructions::shared_ops::*;
 
 impl Cpu {
-    //TODO: Recheck negative flag, can be wrong
     pub fn op_inc(&mut self, data_ref: u16) {
         let now_data = self.read_mem(data_ref).wrapping_add(1);
         self.cpu_status = update_zero_and_neg_flags(self.cpu_status, now_data);

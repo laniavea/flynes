@@ -18,29 +18,34 @@ pub enum MemoryType {
     IndirectY,
 }
 
-const BASE_STACK_POINTER: u16 = 0x01FF;
-
 // Memory Structure:
 // $0000 - $00FF -> ZeroPage (can be accessed with fewer bytes and cycles than other modules)
 // $0100 - $01FF -> Stack (can be start anywhere but usually starts from 01FF and grows downward)
 // $0200 - $07FF -> RAM
 // $0800 - $1FFF -> Mirrors for $0000 - $07FF
-// $2000 - $2007 -> IO registers
+// $2000 - $2007 -> IO registers (PPU)
 // $2008 - $3FFF -> Mirrors for $2000 - $2007
-// $4000 - $401F -> IO registers
+// $4000 - $401F -> IO registers (APU and so on)
 // $4020 - $5FFF -> Expansion ROM
 // $6000 - $7FFF -> SRAM
 // $8000 - $BFFF -> PRG-ROM LB
 // $C000 - $FFFF -> PRG-ROM UB
 // More in https://www.nesdev.org/NESDoc.pdf
 
+const STACK_START: u16 = 0x01FF;
+const RAM_END: u16 = 0x07FF;
+const MIRROR_INIT_AREA_END: u16 = 0x1FFF;
+const PPU_IO_REGISTERS_START: u16 = 0x2000;
+const MIRROR_PPU_IO_REG_END: u16 = 0x3FFF;
+const IO_REGISTERS_START: u16 =  0x4000;
+
 impl Cpu {
     /// Function to read block of data from memory (0x0000 to 0xFFFF)
     pub fn read_mem(&self, pointer: u16) -> u8 {
-        if pointer < 0x2000 {
-            self.memory[(pointer % 0x0800) as usize]
-        } else if (0x4000..=0x5FFF).contains(&pointer) {
-            self.memory[(0x4000 + (pointer % 8)) as usize]
+        if pointer <= MIRROR_INIT_AREA_END {
+            self.memory[(pointer % (RAM_END + 1)) as usize]
+        } else if (PPU_IO_REGISTERS_START..=MIRROR_PPU_IO_REG_END).contains(&pointer) {
+            self.memory[(PPU_IO_REGISTERS_START + (pointer % 8)) as usize]
         } else {
             self.memory[pointer as usize]
         }
@@ -48,10 +53,10 @@ impl Cpu {
 
     /// Function to write block of data to memory (0x0000 to 0xFFFF)
     pub fn write_mem(&mut self, pointer: u16, data: u8) {
-        if pointer < 0x2000 {
-            self.memory[(pointer % 0x0800) as usize] = data;
-        } else if (0x4000..=0x5FFF).contains(&pointer) {
-            self.memory[(0x4000 + (pointer % 8)) as usize] = data;
+        if pointer <= MIRROR_INIT_AREA_END {
+            self.memory[(pointer % (RAM_END + 1)) as usize] = data;
+        } else if (PPU_IO_REGISTERS_START..=MIRROR_PPU_IO_REG_END).contains(&pointer) {
+            self.memory[(PPU_IO_REGISTERS_START + (pointer % 8)) as usize] = data;
         } else {
             self.memory[pointer as usize] = data;
         }
@@ -61,19 +66,29 @@ impl Cpu {
     /// First block is lower bits of a result, for example (05 01) will be transformed to 0x0105
     /// Little-endian Byte Order
     pub fn read_mem_16b(&self, pointer: u16) -> u16 {
-        if pointer < 0x2000 {
-            let act_pointer = pointer % 0x0800;
-            let next_pointer = if pointer != 0x1FFF { (pointer + 1) % 0x0800 } else { 0x2000 };
+        if pointer <= MIRROR_INIT_AREA_END {
+            let act_pointer = pointer % (RAM_END + 1);
+            let next_pointer = if pointer != MIRROR_INIT_AREA_END {
+                (pointer + 1) % (RAM_END + 1) }
+            else {
+                PPU_IO_REGISTERS_START 
+            };
+
             (self.memory[act_pointer as usize] as u16).wrapping_add((self.memory[next_pointer as usize] as u16) << 8)
 
-        } else if (0x4000..=0x5FFF).contains(&pointer) {
-            let act_pointer = 0x4000 + (pointer % 8);
-            let next_pointer = if pointer != 0x5FFF { 0x4000 + ((act_pointer + 1) % 8) } else { 0x6000 };
+        } else if (PPU_IO_REGISTERS_START..=MIRROR_PPU_IO_REG_END).contains(&pointer) {
+            let act_pointer = PPU_IO_REGISTERS_START + (pointer % 8);
+            let next_pointer = if pointer != MIRROR_PPU_IO_REG_END {
+                PPU_IO_REGISTERS_START + ((act_pointer + 1) % 8) 
+            } else {
+                IO_REGISTERS_START 
+            };
 
             (self.memory[act_pointer as usize] as u16).wrapping_add((self.memory[next_pointer as usize] as u16) << 8)
 
         } else {
-            (self.memory[pointer as usize] as u16).wrapping_add((self.memory[pointer.wrapping_add(1) as usize] as u16) << 8)
+            (self.memory[pointer as usize] as u16)
+                .wrapping_add((self.memory[pointer.wrapping_add(1) as usize] as u16) << 8)
         }
     }
 
@@ -84,15 +99,25 @@ impl Cpu {
         let second_byte = data as u8;
         let first_byte = (data >> 8) as u8;
 
-        if pointer < 0x2000 {
-            let act_pointer = pointer % 0x0800;
-            let next_pointer = if pointer != 0x1FFF { (pointer + 1) % 0x0800 } else { 0x2000 };
+        if pointer <= MIRROR_INIT_AREA_END {
+            let act_pointer = pointer % (RAM_END + 1);
+            let next_pointer = if pointer != MIRROR_INIT_AREA_END {
+                (pointer + 1) % (RAM_END + 1) 
+            } else {
+                PPU_IO_REGISTERS_START 
+            };
+
             self.memory[act_pointer as usize] = second_byte;
             self.memory[next_pointer as usize] = first_byte;
 
-        } else if (0x4000..=0x5FFF).contains(&pointer) {
-            let act_pointer = 0x4000 + (pointer % 8);
-            let next_pointer = if pointer != 0x5FFF { 0x4000 + ((act_pointer + 1) % 8) } else { 0x6000 };
+        } else if (PPU_IO_REGISTERS_START..=MIRROR_PPU_IO_REG_END).contains(&pointer) {
+            let act_pointer = PPU_IO_REGISTERS_START + (pointer % 8);
+            let next_pointer = if pointer != MIRROR_PPU_IO_REG_END {
+                PPU_IO_REGISTERS_START + ((act_pointer + 1) % 8) 
+            } else {
+                IO_REGISTERS_START 
+            };
+
             self.memory[act_pointer as usize] = second_byte;
             self.memory[next_pointer as usize] = first_byte;
 
@@ -105,12 +130,12 @@ impl Cpu {
     /// Function to pop data from stack by stack pointer
     pub fn stack_pop(&mut self) -> u8 {
         self.stack_pointer = self.stack_pointer.wrapping_sub(1);
-        self.memory[(BASE_STACK_POINTER - self.stack_pointer as u16) as usize]
+        self.memory[(STACK_START - self.stack_pointer as u16) as usize]
     }
 
     /// Function to push data to stack by stack pointer
     pub fn stack_push(&mut self, value: u8) {
-        self.memory[(BASE_STACK_POINTER - self.stack_pointer as u16) as usize] = value;
+        self.memory[(STACK_START - self.stack_pointer as u16) as usize] = value;
         self.stack_pointer = self.stack_pointer.wrapping_add(1);
     }
 
@@ -187,21 +212,21 @@ fn test_read_write_cpu_mem() {
     assert_eq!((cpu.read_mem(0x0FFE), cpu.read_mem(0x17FF)), (0x19, 0x20));
 
     for now_i in 0..=7 {
-        cpu.write_mem(0x4000 + now_i, now_i as u8 + 1);
+        cpu.write_mem(0x2000 + now_i, now_i as u8 + 1);
     }
     for now_i in 0..=7 {
-        assert_eq!(cpu.read_mem(0x5FF8 + now_i), now_i as u8 + 1)
+        assert_eq!(cpu.read_mem(0x3FF8 + now_i), now_i as u8 + 1)
     }
 
     for now_i in 0..=7 {
-        cpu.write_mem(0x4008 + now_i, now_i as u8 + 1);
+        cpu.write_mem(0x2008 + now_i, now_i as u8 + 1);
     }
     for now_i in 0..=7 {
-        assert_eq!(cpu.read_mem(0x4000 + now_i), now_i as u8 + 1)
+        assert_eq!(cpu.read_mem(0x2000 + now_i), now_i as u8 + 1)
     }
 
     let mut seed: u32 = 52;
-    for _ in 0..1000000 {
+    for _ in 0..1_000_000 {
         // PRNG
         let mut num = seed;
         num ^= num << 13;
@@ -235,6 +260,10 @@ fn test_read_write_cpu_mem() {
         let readed_data_8b = (cpu.read_mem(act_pointer) as u16).wrapping_add((cpu.read_mem(act_pointer.wrapping_add(1)) as u16) << 8);
         assert_eq!(readed_data_16_b, readed_data_8b);
     }
+
+    // Mirrors
+    assert!(cpu.memory[0x2008..=0x3FFF].iter().all(|val| *val == 0));
+    assert!(cpu.memory[0x0800..=0x1FFF].iter().all(|val| *val == 0));
 }
 
 #[test]
