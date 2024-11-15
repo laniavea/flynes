@@ -25,6 +25,14 @@ mod instructions;
 // operations - all posible op codes for 6502, more in instructions.rs
 // memory - CPU memory, more in memory.rs
 
+pub const NEGATIVE_FLAG: u8 = 7;
+pub const OVERFLOW_FLAG: u8 = 6;
+pub const BREAK_FLAG: u8 = 4;
+pub const DECIMAL_FLAG: u8 = 3;
+pub const INTERRUPT_FLAG: u8 = 2;
+pub const ZERO_FLAG: u8 = 1;
+pub const CARRY_FLAG: u8 = 0;
+
 #[derive(Debug, Clone)]
 pub struct Cpu {
     reg_a: u8,

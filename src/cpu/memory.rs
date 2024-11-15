@@ -192,6 +192,9 @@ impl Cpu {
                 let zero_page_add = (self.reg_y + pointer as u8) as usize;
                 self.read_mem_16b(zero_page_add as u16)
             },
+            MemoryType::Relative => {
+                pointer
+            }
             _ => {
                 unimplemented!();
             },

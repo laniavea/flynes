@@ -179,7 +179,7 @@ fn test_prs_operations() {
     assert_eq!((cpu.read_mem(0xFFA0), cpu.read_mem(0xF000), cpu.read_mem(0x0F00)), (127, 1, 255));
 
     // SEI, SEC, SED instructions
-    cpu.cpu_status = 0;
+    cpu.cpu_status = 0b0000_0000;
     cpu.op_sei();
     cpu.op_sec();
     cpu.op_sed();

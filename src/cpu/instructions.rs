@@ -13,6 +13,13 @@ mod shared_ops;
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum OpType {
+    OpBIT,
+    OpBMI,
+    OpBNE,
+    OpBPL,
+    OpBRK,
+    OpBVC,
+    OpBVS,
     OpCLC,
     OpCLD,
     OpCLI,
@@ -109,6 +116,13 @@ impl Cpu {
     pub fn do_insturction(&mut self, memory_data: u16, instruction_type: OpType) {
         //TODO: Maybe split by bytes
         match instruction_type {
+            OpType::OpBIT => self.op_bit(memory_data),
+            OpType::OpBMI => self.op_bmi(memory_data),
+            OpType::OpBNE => self.op_bne(memory_data),
+            OpType::OpBPL => self.op_bpl(memory_data),
+            OpType::OpBRK => self.op_brk(),
+            OpType::OpBVC => self.op_bvc(memory_data),
+            OpType::OpBVS => self.op_bvs(memory_data),
             OpType::OpCLC => self.op_clc(),
             OpType::OpCLD => self.op_cld(),
             OpType::OpCLI => self.op_cli(),
@@ -170,6 +184,36 @@ impl Cpu {
 
 pub fn init_all_operations() -> [Option<Operation>; 256] {
     let mut operations: [Option<Operation>; 256] = [None; 256];
+
+    // BIT operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BIT
+    // Perfoms Acc & data operation then takes 7th and 6th byte of it and transfers to negative and
+    // overflow flags
+    operations[0x24] = Some(Operation::new(2,  3, OpType::OpBIT, MemoryType::ZeroPage));
+    operations[0x2C] = Some(Operation::new(2,  4, OpType::OpBIT, MemoryType::Absolute));
+
+    // BMI operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BMI
+    // Add program counter if negative flag is set
+    operations[0x30] = Some(Operation::new(2,  2, OpType::OpBMI, MemoryType::Relative));
+
+    // BNE operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BNE
+    // Add program counter if zero flag is clear
+    operations[0xD0] = Some(Operation::new(2,  2, OpType::OpBNE, MemoryType::Relative));
+
+    // BPL operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BPL
+    // Add program counter if negative flag is clear
+    operations[0x10] = Some(Operation::new(2,  2, OpType::OpBPL, MemoryType::Relative));
+
+    // BRK operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BRK
+    // Creates interrupt
+    operations[0x00] = Some(Operation::new(1,  7, OpType::OpBRK, MemoryType::Implied));
+
+    // BVC operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BVC
+    // Add program counter if overflow flag is clear
+    operations[0x50] = Some(Operation::new(2,  2, OpType::OpBVC, MemoryType::Relative));
+
+    // BVS operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BVS
+    // Add program counter if overflow flag is set
+    operations[0x70] = Some(Operation::new(2,  2, OpType::OpBVS, MemoryType::Relative));
 
     // CLC operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#CLC
     // Sets carry flag to 0
@@ -288,7 +332,7 @@ pub fn init_all_operations() -> [Option<Operation>; 256] {
     operations[0xBC] = Some(Operation::new(3, 4, OpType::OpLDY, MemoryType::AbsoluteX));
 
     // LSR operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#LSR
-    // Perfomas logical shift right
+    // Perfoms logical shift right
     operations[0x4A] = Some(Operation::new(1, 2, OpType::OpLsrA, MemoryType::Accumulator));
     operations[0x46] = Some(Operation::new(2, 5, OpType::OpLSR, MemoryType::ZeroPage));
     operations[0x56] = Some(Operation::new(2, 6, OpType::OpLSR, MemoryType::ZeroPageX));
