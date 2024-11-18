@@ -95,18 +95,11 @@ impl Cpu {
         };
 
         // Set overflow if first bits were same, but result's first bit isn't same (11 0 -> Overflow)
-        if ((self.reg_a^temp_val) & ((data)^temp_val).wrapping_neg()) & 0b1000_0000 == 0b1000_0000 {
-            self.cpu_status = set_overflow_flag(self.cpu_status, true);
-        } else {
-            self.cpu_status = set_overflow_flag(self.cpu_status, false);
-        }
+        let over_fl_st = ((self.reg_a^temp_val) & (data^temp_val).wrapping_neg()) & 0b1000_0000 == 0b1000_0000;
+        self.cpu_status = set_overflow_flag(self.cpu_status, over_fl_st);
 
         // Sets because it's sum of reg_a and inv data -> if result < reg_a -> reg_a + data > 255
-        if temp_val <= self.reg_a {
-            self.cpu_status = set_carry_flag(self.cpu_status, true);
-        } else {
-            self.cpu_status = set_carry_flag(self.cpu_status, false);
-        }
+        self.cpu_status = set_carry_flag(self.cpu_status, temp_val < self.reg_a);
 
         self.reg_a = temp_val;
         self.cpu_status = update_zero_and_neg_flags(self.cpu_status, self.reg_a);
@@ -121,18 +114,11 @@ impl Cpu {
         };
 
         // Set overflow if first bits were same, but result's first bit isn't same (11 0 -> Overflow)
-        if ((self.reg_a^temp_val) & ((data as u8)^temp_val).wrapping_neg()) & 0b1000_0000 == 0b1000_0000 {
-            self.cpu_status = set_overflow_flag(self.cpu_status, true);
-        } else {
-            self.cpu_status = set_overflow_flag(self.cpu_status, false);
-        }
+        let over_fl_st = ((self.reg_a^temp_val) & ((data as u8)^temp_val).wrapping_neg()) & 0b1000_0000 == 0b1000_0000;
+        self.cpu_status = set_overflow_flag(self.cpu_status, over_fl_st);
 
         // Sets because it's sum of reg_a and inv data -> if result < reg_a -> reg_a + data > 255
-        if temp_val <= self.reg_a {
-            self.cpu_status = set_carry_flag(self.cpu_status, true);
-        } else {
-            self.cpu_status = set_carry_flag(self.cpu_status, false);
-        }
+        self.cpu_status = set_carry_flag(self.cpu_status, temp_val < self.reg_a);
 
         self.reg_a = temp_val;
         self.cpu_status = update_zero_and_neg_flags(self.cpu_status, self.reg_a);
@@ -190,7 +176,8 @@ fn test_prs_operations() {
     assert_eq!(cpu.cpu_status, 0b0000_1101);
     
     // Tested on https://skilldrick.github.io/easy6502/
-    // Assemble
+    //
+    // Assemble:
     // LDA #$00
     // SBC #$64
     // SBC #$9B
@@ -199,6 +186,7 @@ fn test_prs_operations() {
     // SBC #$02
     // SBC #$80
     // SBC #$80
+    // SBC #$FF
     cpu.cpu_status = 0b0000_0000;
     cpu.op_lda_im(0);
     cpu.op_sbc_im(0x64);
@@ -215,6 +203,8 @@ fn test_prs_operations() {
     assert_eq!((cpu.reg_a, cpu.cpu_status), (0x7E, 0b0000_0001));
     cpu.op_sbc_im(0x80);
     assert_eq!((cpu.reg_a, cpu.cpu_status), (0xFE, 0b1100_0000));
+    cpu.op_sbc_im(0xFF);
+    assert_eq!((cpu.reg_a, cpu.cpu_status), (0xFE, 0b1000_0000));
 
     // RTS, RTI instructions
     cpu.stack_pointer = 0x0;

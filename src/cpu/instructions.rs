@@ -13,6 +13,15 @@ mod shared_ops;
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum OpType {
+    OpADC,
+    OpAdcIm,
+    OpAND,
+    OpAndIm,
+    OpASL,
+    OpAslA,
+    OpBCC,
+    OpBCS,
+    OpBEQ,
     OpBIT,
     OpBMI,
     OpBNE,
@@ -116,6 +125,15 @@ impl Cpu {
     pub fn do_insturction(&mut self, memory_data: u16, instruction_type: OpType) {
         //TODO: Maybe split by bytes
         match instruction_type {
+            OpType::OpADC => self.op_adc(memory_data),
+            OpType::OpAdcIm => self.op_adc_im(memory_data),
+            OpType::OpAND => self.op_and(memory_data),
+            OpType::OpAndIm => self.op_and_im(memory_data),
+            OpType::OpASL => self.op_asl(memory_data),
+            OpType::OpAslA => self.op_asl_acc(),
+            OpType::OpBCC => self.op_bcc(memory_data),
+            OpType::OpBCS => self.op_bcs(memory_data),
+            OpType::OpBEQ => self.op_beq(memory_data),
             OpType::OpBIT => self.op_bit(memory_data),
             OpType::OpBMI => self.op_bmi(memory_data),
             OpType::OpBNE => self.op_bne(memory_data),
@@ -184,6 +202,48 @@ impl Cpu {
 
 pub fn init_all_operations() -> [Option<Operation>; 256] {
     let mut operations: [Option<Operation>; 256] = [None; 256];
+
+    // ADC operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#ADC
+    // Add accumulator + memory + carry and writes into accumulator
+    operations[0x69] = Some(Operation::new(2, 2, OpType::OpAdcIm, MemoryType::Immediate));
+    operations[0x65] = Some(Operation::new(2, 3, OpType::OpADC, MemoryType::ZeroPage));
+    operations[0x75] = Some(Operation::new(2, 4, OpType::OpADC, MemoryType::ZeroPageX));
+    operations[0x6D] = Some(Operation::new(3, 4, OpType::OpADC, MemoryType::Absolute));
+    operations[0x7D] = Some(Operation::new(3, 4, OpType::OpADC, MemoryType::AbsoluteX));
+    operations[0x79] = Some(Operation::new(3, 4, OpType::OpADC, MemoryType::AbsoluteY));
+    operations[0x61] = Some(Operation::new(2, 6, OpType::OpADC, MemoryType::IndirectX));
+    operations[0x71] = Some(Operation::new(2, 5, OpType::OpADC, MemoryType::IndirectY));
+
+    // AND operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#AND
+    // Perfoms AND operations and writes result to accumulator
+    operations[0x29] = Some(Operation::new(2, 2, OpType::OpAndIm, MemoryType::Immediate));
+    operations[0x25] = Some(Operation::new(2, 3, OpType::OpAND, MemoryType::ZeroPage));
+    operations[0x35] = Some(Operation::new(2, 4, OpType::OpAND, MemoryType::ZeroPageX));
+    operations[0x2D] = Some(Operation::new(3, 4, OpType::OpAND, MemoryType::Absolute));
+    operations[0x3D] = Some(Operation::new(3, 4, OpType::OpAND, MemoryType::AbsoluteX));
+    operations[0x39] = Some(Operation::new(3, 4, OpType::OpAND, MemoryType::AbsoluteY));
+    operations[0x21] = Some(Operation::new(2, 6, OpType::OpAND, MemoryType::IndirectX));
+    operations[0x31] = Some(Operation::new(2, 5, OpType::OpAND, MemoryType::IndirectY));
+
+    // ASL operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#ASL
+    // Perfoms left shift by one bit
+    operations[0x0A] = Some(Operation::new(1, 2, OpType::OpAslA, MemoryType::Accumulator));
+    operations[0x06] = Some(Operation::new(2, 5, OpType::OpASL, MemoryType::ZeroPage));
+    operations[0x16] = Some(Operation::new(2, 6, OpType::OpASL, MemoryType::ZeroPageX));
+    operations[0x0E] = Some(Operation::new(3, 6, OpType::OpASL, MemoryType::Absolute));
+    operations[0x1E] = Some(Operation::new(3, 7, OpType::OpASL, MemoryType::AbsoluteX));
+
+    // BCC operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BCC
+    // Add program counter if carry flag is clear
+    operations[0x90] = Some(Operation::new(2,  2, OpType::OpBCC, MemoryType::Relative));
+
+    // BCS operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BCS
+    // Add program counter if carry flag is set
+    operations[0xB0] = Some(Operation::new(2,  2, OpType::OpBCS, MemoryType::Relative));
+
+    // BEQ operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BEQ
+    // Add program counter if zero flag is set
+    operations[0xF0] = Some(Operation::new(2,  2, OpType::OpBEQ, MemoryType::Relative));
 
     // BIT operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BIT
     // Perfoms Acc & data operation then takes 7th and 6th byte of it and transfers to negative and

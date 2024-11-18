@@ -6,6 +6,8 @@ pub mod cpu;
 fn main() {
     pretty_env_logger::init();
 
+    info!("Starting main function");
+
     test_smth_fn();
 
     let mut cpu = cpu::Cpu::default();
