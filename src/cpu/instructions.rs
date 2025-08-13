@@ -1,529 +1,623 @@
-use log::info;
-
 use crate::cpu::Cpu;
-use crate::cpu::memory::MemoryType;
+use crate::memory::{Memory, MemoryType};
 
-mod inst_ab;
-mod inst_cde;
-mod inst_ijlno;
-mod inst_prs;
-mod inst_t;
+mod load_store;
+mod register_transfer;
+mod stack_operations;
+mod logical;
+mod arithmetic;
+mod increment_decrement;
+mod shifts;
+mod jumps_calls;
+mod branches;
+mod status_flag_changes;
+mod system_functions;
+
 mod shared_ops;
 
+const NO_OP: Operation = Operation {
+    cycles: 0,
+    cycles_pgcr: 0,
+    memory_type: MemoryType::Implied,
+    op_name: CPUInstByte::NoOp,
+};
+
 #[derive(Debug, Clone, Copy)]
+pub enum CPUInstByte {
+    One(Inst1Byte),
+    Two(Inst2Byte),
+    Three(Inst3Byte),
+    NoOp,
+}
+
+impl CPUInstByte {
+    pub fn as_digit(&self) -> usize {
+        match self {
+            CPUInstByte::One(_) => 1,
+            CPUInstByte::Two(_) => 2,
+            CPUInstByte::Three(_) => 3,
+            CPUInstByte::NoOp => 0,
+        }
+    }
+}
+
 #[repr(u8)]
-pub enum OpType {
-    OpADC,
-    OpAdcIm,
-    OpAND,
-    OpAndIm,
-    OpASL,
-    OpAslA,
-    OpBCC,
-    OpBCS,
-    OpBEQ,
-    OpBIT,
-    OpBMI,
-    OpBNE,
-    OpBPL,
-    OpBRK,
-    OpBVC,
-    OpBVS,
-    OpCLC,
-    OpCLD,
-    OpCLI,
-    OpCLV,
-    OpCMP,
-    OpCmpIm,
-    OpCPX,
-    OpCpxIm,
-    OpCPY,
-    OpCpyIm,
-    OpDEC,
-    OpDEX,
-    OpDEY,
-    OpEOR,
-    OpEorIm,
-    OpINC,
-    OpINX,
-    OpINY,
-    OpJMP,
-    OpJSR,
-    OpLDA,
-    OpLdaIm,
-    OpLDX,
-    OpLdxIm,
-    OpLDY,
-    OpLdyIm,
-    OpLSR,
-    OpLsrA,
-    OpNOP,
-    OpORA,
-    OpOraIm,
-    OpPHA,
-    OpPHP,
-    OpPLA,
-    OpPLP,
-    OpROL,
-    OpRolA,
-    OpROR,
-    OpRorA,
-    OpRTI,
-    OpRTS,
-    OpSBC,
-    OpSBCIm,
-    OpSEC,
-    OpSED,
-    OpSEI,
-    OpSTA,
-    OpSTX,
-    OpSTY,
-    OpTAX,
-    OpTAY,
-    OpTSX,
-    OpTXA,
-    OpTXS,
-    OpTYA,
+#[derive(Debug, Clone, Copy)]
+pub enum Inst1Byte {
+    TAXop,
+    TAYop,
+    TXAop,
+    TYAop,
+    TSXop,
+    TXSop,
+    PHAop,
+    PHPop,
+    PLAop,
+    PLPop,
+    INXop,
+    INYop,
+    DEXop,
+    DEYop,
+    ASLop,
+    LSRop,
+    ROLop,
+    RORop,
+    RTSop,
+    CLCop,
+    CLDop,
+    CLIop,
+    CLVop,
+    SECop,
+    SEDop,
+    SEIop,
+    BRKop,
+    NOPop,
+    RTIop,
+}
+
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
+pub enum Inst2Byte {
+    LDAop,
+    LDXop,
+    LDYop,
+    STAop,
+    STXop,
+    STYop,
+    ANDop,
+    EORop,
+    ORAop,
+    BITop,
+    ADCop,
+    SBCop,
+    CMPop,
+    CPXop,
+    CPYop,
+    INCop,
+    DECop,
+    ASLop,
+    LSRop,
+    ROLop,
+    RORop,
+    BCCop,
+    BCSop,
+    BEQop,
+    BMIop,
+    BNEop,
+    BPLop,
+    BVCop,
+    BVSop,
+}
+
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
+pub enum Inst3Byte {
+    LDAop,
+    LDXop,
+    LDYop,
+    STAop,
+    STXop,
+    STYop,
+    ANDop,
+    EORop,
+    ORAop,
+    BITop,
+    ADCop,
+    SBCop,
+    CMPop,
+    CPXop,
+    CPYop,
+    INCop,
+    DECop,
+    ASLop,
+    LSRop,
+    ROLop,
+    RORop,
+    JMPop,
+    JSRop,
+}
+
+impl Cpu {
+    pub fn execute_inst_1_byte(&mut self, now_inst: Inst1Byte, memory: &mut Memory) {
+        match now_inst {
+            Inst1Byte::TAXop => self.op_tax(),
+            Inst1Byte::TAYop => self.op_tay(),
+            Inst1Byte::TXAop => self.op_txa(),
+            Inst1Byte::TYAop => self.op_tya(),
+            Inst1Byte::TSXop => self.op_tsx(),
+            Inst1Byte::TXSop => self.op_txs(),
+            Inst1Byte::PHAop => self.op_pha(memory),
+            Inst1Byte::PHPop => self.op_php(memory),
+            Inst1Byte::PLAop => self.op_pla(memory),
+            Inst1Byte::PLPop => self.op_plp(memory),
+            Inst1Byte::INXop => self.op_inx(),
+            Inst1Byte::INYop => self.op_iny(),
+            Inst1Byte::DEXop => self.op_dex(),
+            Inst1Byte::DEYop => self.op_dey(),
+            Inst1Byte::ASLop => self.op_asl_acc(),
+            Inst1Byte::LSRop => self.op_lsr_acc(),
+            Inst1Byte::ROLop => self.op_rol_acc(),
+            Inst1Byte::RORop => self.op_ror_acc(),
+            Inst1Byte::RTSop => self.op_rts(memory),
+            Inst1Byte::CLCop => self.op_clc(),
+            Inst1Byte::CLDop => self.op_cld(),
+            Inst1Byte::CLIop => self.op_cli(),
+            Inst1Byte::CLVop => self.op_clv(),
+            Inst1Byte::SECop => self.op_sec(),
+            Inst1Byte::SEDop => self.op_sed(),
+            Inst1Byte::SEIop => self.op_sei(),
+            Inst1Byte::BRKop => self.op_brk(memory),
+            Inst1Byte::NOPop => self.op_nop(),
+            Inst1Byte::RTIop => self.op_rti(memory),
+        }
+    }
+
+    pub fn execute_inst_2_byte(&mut self, now_inst: Inst2Byte, data_ref: &mut u8) {
+        match now_inst {
+            Inst2Byte::LDAop => self.op_lda(data_ref),
+            Inst2Byte::LDXop => self.op_ldx(data_ref),
+            Inst2Byte::LDYop => self.op_ldy(data_ref),
+            Inst2Byte::STAop => self.op_sta(data_ref),
+            Inst2Byte::STXop => self.op_stx(data_ref),
+            Inst2Byte::STYop => self.op_sty(data_ref),
+            Inst2Byte::ANDop => self.op_and(data_ref),
+            Inst2Byte::EORop => self.op_eor(data_ref),
+            Inst2Byte::ORAop => self.op_ora(data_ref),
+            Inst2Byte::BITop => self.op_bit(data_ref),
+            Inst2Byte::ADCop => self.op_adc(data_ref),
+            Inst2Byte::SBCop => self.op_sbc(data_ref),
+            Inst2Byte::CMPop => self.op_cmp(data_ref),
+            Inst2Byte::CPXop => self.op_cpx(data_ref),
+            Inst2Byte::CPYop => self.op_cpy(data_ref),
+            Inst2Byte::INCop => self.op_inc(data_ref),
+            Inst2Byte::DECop => self.op_dec(data_ref),
+            Inst2Byte::ASLop => self.op_asl(data_ref),
+            Inst2Byte::LSRop => self.op_lsr(data_ref),
+            Inst2Byte::ROLop => self.op_rol(data_ref),
+            Inst2Byte::RORop => self.op_ror(data_ref),
+            Inst2Byte::BCCop => self.op_bcc(data_ref),
+            Inst2Byte::BCSop => self.op_bcs(data_ref),
+            Inst2Byte::BEQop => self.op_beq(data_ref),
+            Inst2Byte::BMIop => self.op_bmi(data_ref),
+            Inst2Byte::BNEop => self.op_bne(data_ref),
+            Inst2Byte::BPLop => self.op_bpl(data_ref),
+            Inst2Byte::BVCop => self.op_bvc(data_ref),
+            Inst2Byte::BVSop => self.op_bvs(data_ref),
+        };
+    }
+
+    pub fn execute_inst_3_byte(&mut self, now_inst: Inst3Byte, target_memory: u16, memory: &mut Memory) {
+        match now_inst {
+            Inst3Byte::LDAop => self.op_lda(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::LDXop => self.op_ldx(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::LDYop => self.op_ldy(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::STAop => self.op_sta(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::STXop => self.op_stx(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::STYop => self.op_sty(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::ANDop => self.op_and(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::EORop => self.op_eor(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::ORAop => self.op_ora(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::BITop => self.op_bit(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::ADCop => self.op_adc(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::SBCop => self.op_sbc(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::CMPop => self.op_cmp(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::CPXop => self.op_cpx(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::CPYop => self.op_cpy(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::INCop => self.op_inc(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::DECop => self.op_dec(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::ASLop => self.op_asl(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::LSRop => self.op_lsr(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::ROLop => self.op_rol(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::RORop => self.op_ror(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::JMPop => self.op_jmp(target_memory),
+            Inst3Byte::JSRop => self.op_jsr(target_memory, memory),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct Operation {
-   bytes: u8,
-   _cycles: u8,
-   op_type: OpType,
-   memory_type: MemoryType,
+    cycles: u8,
+    cycles_pgcr: u8,
+    memory_type: MemoryType,
+    op_name: CPUInstByte,
 }
 
 impl Operation {
-    pub fn new(bytes: u8, cycles: u8, op_type: OpType, memory_type: MemoryType) -> Operation {
-        Self {
-            bytes,
-            _cycles: cycles,
-            op_type,
-            memory_type,
-        }
+    pub fn cycles(&self) -> u8 {
+        self.cycles
     }
 
-    pub fn bytes(&self) -> u8 {
-        self.bytes
-    }
-
-    pub fn _cycles(&self) -> u8 {
-        self._cycles
-    }
-
-    pub fn op_type(&self) -> OpType {
-        self.op_type
+    pub fn _cycles_pgcr(&self) -> u8 {
+        self.cycles_pgcr
     }
 
     pub fn memory_type(&self) -> MemoryType {
         self.memory_type
     }
+
+    pub fn op_name(&self) -> CPUInstByte {
+        self.op_name
+    }
 }
 
-impl Cpu {
-    pub fn do_insturction(&mut self, memory_data: u16, instruction_type: OpType) {
-        //TODO: Maybe split by bytes
-        match instruction_type {
-            OpType::OpADC => self.op_adc(memory_data),
-            OpType::OpAdcIm => self.op_adc_im(memory_data),
-            OpType::OpAND => self.op_and(memory_data),
-            OpType::OpAndIm => self.op_and_im(memory_data),
-            OpType::OpASL => self.op_asl(memory_data),
-            OpType::OpAslA => self.op_asl_acc(),
-            OpType::OpBCC => self.op_bcc(memory_data),
-            OpType::OpBCS => self.op_bcs(memory_data),
-            OpType::OpBEQ => self.op_beq(memory_data),
-            OpType::OpBIT => self.op_bit(memory_data),
-            OpType::OpBMI => self.op_bmi(memory_data),
-            OpType::OpBNE => self.op_bne(memory_data),
-            OpType::OpBPL => self.op_bpl(memory_data),
-            OpType::OpBRK => self.op_brk(),
-            OpType::OpBVC => self.op_bvc(memory_data),
-            OpType::OpBVS => self.op_bvs(memory_data),
-            OpType::OpCLC => self.op_clc(),
-            OpType::OpCLD => self.op_cld(),
-            OpType::OpCLI => self.op_cli(),
-            OpType::OpCLV => self.op_clv(),
-            OpType::OpCMP => self.op_cmp(memory_data),
-            OpType::OpCmpIm => self.op_cmp_im(memory_data),
-            OpType::OpCPX => self.op_cpx(memory_data),
-            OpType::OpCpxIm => self.op_cpx_im(memory_data),
-            OpType::OpCPY => self.op_cpy(memory_data),
-            OpType::OpCpyIm => self.op_cpy_im(memory_data),
-            OpType::OpDEC => self.op_dec(memory_data),
-            OpType::OpDEX => self.op_dex(),
-            OpType::OpDEY => self.op_dey(),
-            OpType::OpEOR => self.op_eor(memory_data),
-            OpType::OpEorIm => self.op_eor_im(memory_data),
-            OpType::OpINC => self.op_inc(memory_data),
-            OpType::OpINX => self.op_inx(),
-            OpType::OpINY => self.op_iny(),
-            OpType::OpJMP => self.op_jmp(memory_data),
-            OpType::OpJSR => self.op_jsr(memory_data),
-            OpType::OpLDA => self.op_lda(memory_data),
-            OpType::OpLdaIm => self.op_lda_im(memory_data),
-            OpType::OpLDX => self.op_ldx(memory_data),
-            OpType::OpLdxIm => self.op_ldx_im(memory_data),
-            OpType::OpLDY => self.op_ldy(memory_data),
-            OpType::OpLdyIm => self.op_ldy_im(memory_data),
-            OpType::OpLSR => self.op_lsr(memory_data),
-            OpType::OpLsrA => self.op_lsr_a(),
-            OpType::OpNOP => self.op_nop(),
-            OpType::OpORA => self.op_ora(memory_data),
-            OpType::OpOraIm => self.op_ora_im(memory_data),
-            OpType::OpPHA => self.op_pha(),
-            OpType::OpPHP => self.op_php(),
-            OpType::OpPLA => self.op_pla(),
-            OpType::OpPLP => self.op_plp(),
-            OpType::OpROL => self.op_rol(memory_data),
-            OpType::OpRolA => self.op_rol_a(),
-            OpType::OpROR => self.op_ror(memory_data),
-            OpType::OpRorA => self.op_ror_a(),
-            OpType::OpRTI => self.op_rti(),
-            OpType::OpRTS => self.op_rts(),
-            OpType::OpSBC => self.op_sbc(memory_data),
-            OpType::OpSBCIm => self.op_sbc_im(memory_data),
-            OpType::OpSEC => self.op_sec(),
-            OpType::OpSED => self.op_sed(),
-            OpType::OpSEI => self.op_sei(),
-            OpType::OpSTA => self.op_sta(memory_data),
-            OpType::OpSTX => self.op_stx(memory_data),
-            OpType::OpSTY => self.op_sty(memory_data),
-            OpType::OpTAX => self.op_tax(),
-            OpType::OpTAY => self.op_tay(),
-            OpType::OpTSX => self.op_tsx(),
-            OpType::OpTXA => self.op_txa(),
-            OpType::OpTXS => self.op_txs(),
-            OpType::OpTYA => self.op_tya(),
+impl Operation {
+    const fn new(cycles: u8, memory_type: MemoryType, op_name: CPUInstByte) -> Operation {
+        Operation {
+            cycles,
+            cycles_pgcr: 0,
+            memory_type,
+            op_name,
+        }
+    }
+
+    const fn set_cycles_page_crossed(&mut self, cycles_pgcr: u8) {
+        self.cycles_pgcr = cycles_pgcr
+    }
+}
+
+pub const fn init_all_operations() -> ([Operation; 256], usize) {
+    let mut all_operations: [Operation; 256] = [NO_OP; 256];
+    let mut oper_counter = 0;
+
+    // Load & Store operations: LDA, LDX, LDY, STA, STX, STY
+    
+    // LDA operations
+    all_operations[0xA9] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::LDAop));
+    all_operations[0xA5] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::LDAop));
+    all_operations[0xB5] = Operation::new(4, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::LDAop));
+    all_operations[0xAD] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::LDAop));
+    all_operations[0xBD] = Operation::new(4, MemoryType::AbsoluteX, CPUInstByte::Three(Inst3Byte::LDAop));
+    all_operations[0xB9] = Operation::new(4, MemoryType::AbsoluteY, CPUInstByte::Three(Inst3Byte::LDAop));
+    all_operations[0xA1] = Operation::new(6, MemoryType::IndirectX, CPUInstByte::Two(Inst2Byte::LDAop));
+    all_operations[0xB1] = Operation::new(5, MemoryType::IndirectY, CPUInstByte::Two(Inst2Byte::LDAop));
+
+    all_operations[0xBD].set_cycles_page_crossed(1);
+    all_operations[0xB9].set_cycles_page_crossed(1);
+    all_operations[0xB1].set_cycles_page_crossed(1);
+    oper_counter += 8;
+
+    // LDX operations
+    all_operations[0xA2] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::LDAop));
+    all_operations[0xA6] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::LDAop));
+    all_operations[0xB6] = Operation::new(4, MemoryType::ZeroPageY, CPUInstByte::Two(Inst2Byte::LDAop));
+    all_operations[0xAE] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::LDAop));
+    all_operations[0xBE] = Operation::new(4, MemoryType::AbsoluteY, CPUInstByte::Three(Inst3Byte::LDAop));
+
+    all_operations[0xBE].set_cycles_page_crossed(1);
+    oper_counter += 5;
+
+    // LDY operations
+    all_operations[0xA0] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::LDYop));
+    all_operations[0xA4] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::LDYop));
+    all_operations[0xB4] = Operation::new(4, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::LDYop));
+    all_operations[0xAC] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::LDYop));
+    all_operations[0xBC] = Operation::new(4, MemoryType::AbsoluteX, CPUInstByte::Three(Inst3Byte::LDYop));
+
+    all_operations[0xBC].set_cycles_page_crossed(1);
+    oper_counter += 5;
+
+    // STA operations
+    all_operations[0x85] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::STAop));
+    all_operations[0x95] = Operation::new(4, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::STAop));
+    all_operations[0x8D] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::STAop));
+    all_operations[0x9D] = Operation::new(5, MemoryType::AbsoluteX, CPUInstByte::Three(Inst3Byte::STAop));
+    all_operations[0x99] = Operation::new(5, MemoryType::AbsoluteY, CPUInstByte::Three(Inst3Byte::STAop));
+    all_operations[0x81] = Operation::new(6, MemoryType::IndirectX, CPUInstByte::Two(Inst2Byte::STAop));
+    all_operations[0x91] = Operation::new(6, MemoryType::IndirectY, CPUInstByte::Two(Inst2Byte::STAop));
+
+    oper_counter += 7;
+
+    // STX operations
+    all_operations[0x86] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::STXop));
+    all_operations[0x96] = Operation::new(4, MemoryType::ZeroPageY, CPUInstByte::Two(Inst2Byte::STXop));
+    all_operations[0x8E] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::STXop));
+
+    oper_counter += 3;
+
+    // STY operations
+    all_operations[0x84] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::STYop));
+    all_operations[0x94] = Operation::new(4, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::STYop));
+    all_operations[0x8C] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::STYop));
+
+    oper_counter += 3;
+
+    // Register transfer operations: TAX, TAY, TXA, TYA
+    
+    // TAX, TAY, TXA, TYA operations
+    all_operations[0xAA] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::TAXop));
+    all_operations[0xA8] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::TAYop));
+    all_operations[0x8A] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::TXAop));
+    all_operations[0x98] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::TYAop));
+
+    oper_counter += 4;
+
+    // Stack operations: TSX, TXS, PHA, PHP, PLA, PLP
+    
+    // TSX, TXS operations
+    all_operations[0xBA] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::TSXop));
+    all_operations[0x9A] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::TXSop));
+    oper_counter += 2;
+
+    // PHA, PHP operations
+    all_operations[0x48] = Operation::new(3, MemoryType::Implied, CPUInstByte::One(Inst1Byte::PHAop));
+    all_operations[0x08] = Operation::new(3, MemoryType::Implied, CPUInstByte::One(Inst1Byte::PHPop));
+
+    oper_counter += 2;
+
+    // PLA, PLP operations
+    all_operations[0x68] = Operation::new(4, MemoryType::Implied, CPUInstByte::One(Inst1Byte::PLAop));
+    all_operations[0x28] = Operation::new(4, MemoryType::Implied, CPUInstByte::One(Inst1Byte::PLPop));
+
+    oper_counter += 2;
+
+    // Logical operations: AND, EOR, ORA, BIT
+
+    // AND operations
+    all_operations[0x29] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::ANDop));
+    all_operations[0x25] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::ANDop));
+    all_operations[0x35] = Operation::new(4, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::ANDop));
+    all_operations[0x2D] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::ANDop));
+    all_operations[0x3D] = Operation::new(4, MemoryType::AbsoluteX, CPUInstByte::Three(Inst3Byte::ANDop));
+    all_operations[0x39] = Operation::new(4, MemoryType::AbsoluteY, CPUInstByte::Three(Inst3Byte::ANDop));
+    all_operations[0x21] = Operation::new(6, MemoryType::IndirectX, CPUInstByte::Two(Inst2Byte::ANDop));
+    all_operations[0x31] = Operation::new(5, MemoryType::IndirectY, CPUInstByte::Two(Inst2Byte::ANDop));
+
+    all_operations[0x3D].set_cycles_page_crossed(1);
+    all_operations[0x39].set_cycles_page_crossed(1);
+    all_operations[0x31].set_cycles_page_crossed(1);
+
+    oper_counter += 8;
+
+    // EOR operations
+    all_operations[0x49] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::EORop));
+    all_operations[0x45] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::EORop));
+    all_operations[0x55] = Operation::new(4, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::EORop));
+    all_operations[0x4D] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::EORop));
+    all_operations[0x5D] = Operation::new(4, MemoryType::AbsoluteX, CPUInstByte::Three(Inst3Byte::EORop));
+    all_operations[0x59] = Operation::new(4, MemoryType::AbsoluteY, CPUInstByte::Three(Inst3Byte::EORop));
+    all_operations[0x41] = Operation::new(6, MemoryType::IndirectX, CPUInstByte::Two(Inst2Byte::EORop));
+    all_operations[0x51] = Operation::new(5, MemoryType::IndirectY, CPUInstByte::Two(Inst2Byte::EORop));
+
+    all_operations[0x5D].set_cycles_page_crossed(1);
+    all_operations[0x59].set_cycles_page_crossed(1);
+    all_operations[0x51].set_cycles_page_crossed(1);
+
+    oper_counter += 8;
+
+    // ORA operations
+    all_operations[0x09] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::ORAop));
+    all_operations[0x05] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::ORAop));
+    all_operations[0x15] = Operation::new(4, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::ORAop));
+    all_operations[0x0D] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::ORAop));
+    all_operations[0x1D] = Operation::new(4, MemoryType::AbsoluteX, CPUInstByte::Three(Inst3Byte::ORAop));
+    all_operations[0x19] = Operation::new(4, MemoryType::AbsoluteY, CPUInstByte::Three(Inst3Byte::ORAop));
+    all_operations[0x01] = Operation::new(6, MemoryType::IndirectX, CPUInstByte::Two(Inst2Byte::ORAop));
+    all_operations[0x11] = Operation::new(5, MemoryType::IndirectY, CPUInstByte::Two(Inst2Byte::ORAop));
+
+    all_operations[0x1D].set_cycles_page_crossed(1);
+    all_operations[0x19].set_cycles_page_crossed(1);
+    all_operations[0x11].set_cycles_page_crossed(1);
+
+    oper_counter += 8;
+
+    // BIT operations
+    all_operations[0x24] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::BITop));
+    all_operations[0x2C] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::BITop));
+
+    oper_counter += 2;
+
+    // Arithmetic operations: ADC, SBC, CMP, CPX, CPY
+    // ADC operations
+    all_operations[0x69] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::ADCop));
+    all_operations[0x65] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::ADCop));
+    all_operations[0x75] = Operation::new(4, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::ADCop));
+    all_operations[0x6D] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::ADCop));
+    all_operations[0x7D] = Operation::new(4, MemoryType::AbsoluteX, CPUInstByte::Three(Inst3Byte::ADCop));
+    all_operations[0x79] = Operation::new(4, MemoryType::AbsoluteY, CPUInstByte::Three(Inst3Byte::ADCop));
+    all_operations[0x61] = Operation::new(6, MemoryType::IndirectX, CPUInstByte::Two(Inst2Byte::ADCop));
+    all_operations[0x71] = Operation::new(5, MemoryType::IndirectY, CPUInstByte::Two(Inst2Byte::ADCop));
+
+    all_operations[0x7D].set_cycles_page_crossed(1);
+    all_operations[0x79].set_cycles_page_crossed(1);
+    all_operations[0x71].set_cycles_page_crossed(1);
+
+    oper_counter += 8;
+
+    // SBC operations
+    all_operations[0xE9] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::SBCop));
+    all_operations[0xE5] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::SBCop));
+    all_operations[0xF5] = Operation::new(4, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::SBCop));
+    all_operations[0xED] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::SBCop));
+    all_operations[0xFD] = Operation::new(4, MemoryType::AbsoluteX, CPUInstByte::Three(Inst3Byte::SBCop));
+    all_operations[0xF9] = Operation::new(4, MemoryType::AbsoluteY, CPUInstByte::Three(Inst3Byte::SBCop));
+    all_operations[0xE1] = Operation::new(6, MemoryType::IndirectX, CPUInstByte::Two(Inst2Byte::SBCop));
+    all_operations[0xF1] = Operation::new(5, MemoryType::IndirectY, CPUInstByte::Two(Inst2Byte::SBCop));
+
+    all_operations[0xFD].set_cycles_page_crossed(1);
+    all_operations[0xF9].set_cycles_page_crossed(1);
+    all_operations[0xF1].set_cycles_page_crossed(1);
+
+    oper_counter += 8;
+
+    // CMP operations
+    all_operations[0xC9] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::CMPop));
+    all_operations[0xC5] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::CMPop));
+    all_operations[0xD5] = Operation::new(4, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::CMPop));
+    all_operations[0xCD] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::CMPop));
+    all_operations[0xDD] = Operation::new(4, MemoryType::AbsoluteX, CPUInstByte::Three(Inst3Byte::CMPop));
+    all_operations[0xD9] = Operation::new(4, MemoryType::AbsoluteY, CPUInstByte::Three(Inst3Byte::CMPop));
+    all_operations[0xC1] = Operation::new(6, MemoryType::IndirectX, CPUInstByte::Two(Inst2Byte::CMPop));
+    all_operations[0xD1] = Operation::new(5, MemoryType::IndirectY, CPUInstByte::Two(Inst2Byte::CMPop));
+
+    all_operations[0xDD].set_cycles_page_crossed(1);
+    all_operations[0xD9].set_cycles_page_crossed(1);
+    all_operations[0xD1].set_cycles_page_crossed(1);
+
+    oper_counter += 8;
+
+    // CPX operations
+    all_operations[0xE0] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::CPXop));
+    all_operations[0xE4] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::CPXop));
+    all_operations[0xEC] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::CPXop));
+
+    oper_counter += 3;
+
+    // CPY operations
+    all_operations[0xC0] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::CPYop));
+    all_operations[0xC4] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::CPYop));
+    all_operations[0xCC] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::CPYop));
+
+    oper_counter += 3;
+
+    // Increments and Decrements operations: INC, INX, INY, DEC, DEX, DEY
+    // INC operations
+    all_operations[0xE6] = Operation::new(5, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::INCop));
+    all_operations[0xF6] = Operation::new(6, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::INCop));
+    all_operations[0xEE] = Operation::new(6, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::INCop));
+    all_operations[0xFE] = Operation::new(7, MemoryType::AbsoluteX, CPUInstByte::Three(Inst3Byte::INCop));
+
+    oper_counter += 4;
+
+    // INX, INY operations
+    all_operations[0xE8] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::INXop));
+    all_operations[0xC8] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::INYop));
+
+    oper_counter += 2;
+
+    // DEC operations
+    all_operations[0xC6] = Operation::new(5, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::DECop));
+    all_operations[0xD6] = Operation::new(6, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::DECop));
+    all_operations[0xCE] = Operation::new(6, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::DECop));
+    all_operations[0xDE] = Operation::new(7, MemoryType::AbsoluteX, CPUInstByte::Three(Inst3Byte::DECop));
+
+    oper_counter += 4;
+
+    // DEX, DEY operations
+    all_operations[0xCA] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::DEXop));
+    all_operations[0x88] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::DEYop));
+
+    oper_counter += 2;
+
+    // Shifts operations: ASL, LSR, ROL, ROR
+    // ASL operations
+    all_operations[0x0A] = Operation::new(2, MemoryType::Accumulator, CPUInstByte::One(Inst1Byte::ASLop));
+    all_operations[0x06] = Operation::new(5, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::ASLop));
+    all_operations[0x16] = Operation::new(6, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::ASLop));
+    all_operations[0x0E] = Operation::new(6, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::ASLop));
+    all_operations[0x1E] = Operation::new(7, MemoryType::AbsoluteX, CPUInstByte::Three(Inst3Byte::ASLop));
+
+    oper_counter += 5;
+
+    // LSR operations
+    all_operations[0x4A] = Operation::new(2, MemoryType::Accumulator, CPUInstByte::One(Inst1Byte::LSRop));
+    all_operations[0x46] = Operation::new(5, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::LSRop));
+    all_operations[0x56] = Operation::new(6, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::LSRop));
+    all_operations[0x4E] = Operation::new(6, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::LSRop));
+    all_operations[0x5E] = Operation::new(7, MemoryType::AbsoluteX, CPUInstByte::Three(Inst3Byte::LSRop));
+
+    oper_counter += 5;
+
+    // ROL operations
+    all_operations[0x2A] = Operation::new(2, MemoryType::Accumulator, CPUInstByte::One(Inst1Byte::ROLop));
+    all_operations[0x26] = Operation::new(5, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::ROLop));
+    all_operations[0x36] = Operation::new(6, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::ROLop));
+    all_operations[0x2E] = Operation::new(6, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::ROLop));
+    all_operations[0x3E] = Operation::new(7, MemoryType::AbsoluteX, CPUInstByte::Three(Inst3Byte::ROLop));
+
+    oper_counter += 5;
+
+    // ROR operations
+    all_operations[0x6A] = Operation::new(2, MemoryType::Accumulator, CPUInstByte::One(Inst1Byte::RORop));
+    all_operations[0x66] = Operation::new(5, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::RORop));
+    all_operations[0x76] = Operation::new(6, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::RORop));
+    all_operations[0x6E] = Operation::new(6, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::RORop));
+    all_operations[0x7E] = Operation::new(7, MemoryType::AbsoluteX, CPUInstByte::Three(Inst3Byte::RORop));
+
+    oper_counter += 5;
+
+    // Jump and Calls operations: JMP, JSR, RTS
+    // JMP operations
+    all_operations[0x4C] = Operation::new(3, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::JMPop));
+    all_operations[0x6C] = Operation::new(5, MemoryType::Indirect, CPUInstByte::Three(Inst3Byte::JMPop));
+
+    oper_counter += 2;
+
+    // JSR and RTS
+    all_operations[0x20] = Operation::new(6, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::JSRop));
+    all_operations[0x60] = Operation::new(6, MemoryType::Implied, CPUInstByte::One(Inst1Byte::RTSop));
+
+    oper_counter += 2;
+
+    // Branches: BCC, BCS, BEQ, BMI, BNE, BPL, BVC, BVS
+    // BCC, BCS, BEQ, BMI, BNE, BPL, BVC, BVS operations
+    all_operations[0x90] = Operation::new(2, MemoryType::Relative, CPUInstByte::Two(Inst2Byte::BCCop));
+    all_operations[0xB0] = Operation::new(2, MemoryType::Relative, CPUInstByte::Two(Inst2Byte::BCSop));
+    all_operations[0xF0] = Operation::new(2, MemoryType::Relative, CPUInstByte::Two(Inst2Byte::BEQop));
+    all_operations[0x30] = Operation::new(2, MemoryType::Relative, CPUInstByte::Two(Inst2Byte::BMIop));
+    all_operations[0xD0] = Operation::new(2, MemoryType::Relative, CPUInstByte::Two(Inst2Byte::BNEop));
+    all_operations[0x10] = Operation::new(2, MemoryType::Relative, CPUInstByte::Two(Inst2Byte::BPLop));
+    all_operations[0x50] = Operation::new(2, MemoryType::Relative, CPUInstByte::Two(Inst2Byte::BVCop));
+    all_operations[0x70] = Operation::new(2, MemoryType::Relative, CPUInstByte::Two(Inst2Byte::BVSop));
+
+    oper_counter += 8;
+
+    // Status flag changes: CLC, CLD, CLI, CLV, SEC, SED, SEI
+    // CLC, CLD, CLI, CLV, SEC, SED, SEI
+    all_operations[0x18] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::CLCop));
+    all_operations[0xD8] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::CLDop));
+    all_operations[0x58] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::CLIop));
+    all_operations[0xB8] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::CLVop));
+    all_operations[0x38] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::SECop));
+    all_operations[0xF8] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::SEDop));
+    all_operations[0x78] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::SEIop));
+
+    oper_counter += 7;
+
+    // System functions: BRK, NOP, RTI
+    // BRK, NOP, RTI
+    all_operations[0x00] = Operation::new(7, MemoryType::Implied, CPUInstByte::One(Inst1Byte::BRKop));
+    all_operations[0xEA] = Operation::new(2, MemoryType::Implied, CPUInstByte::One(Inst1Byte::NOPop));
+    all_operations[0x40] = Operation::new(6, MemoryType::Implied, CPUInstByte::One(Inst1Byte::RTIop));
+
+    oper_counter += 3;
+
+    (all_operations, oper_counter)
+}
+
+impl std::fmt::Display for CPUInstByte {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            CPUInstByte::One(inst) => write!(f, "{inst:?}"),
+            CPUInstByte::Two(inst) => write!(f, "{inst:?}"),
+            CPUInstByte::Three(inst) => write!(f, "{inst:?}"),
+            CPUInstByte::NoOp => write!(f, "NoOp"),
         }
     }
 }
 
-pub fn init_all_operations() -> [Option<Operation>; 256] {
-    let mut operations: [Option<Operation>; 256] = [None; 256];
-
-    // ADC operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#ADC
-    // Add accumulator + memory + carry and writes into accumulator
-    operations[0x69] = Some(Operation::new(2, 2, OpType::OpAdcIm, MemoryType::Immediate));
-    operations[0x65] = Some(Operation::new(2, 3, OpType::OpADC, MemoryType::ZeroPage));
-    operations[0x75] = Some(Operation::new(2, 4, OpType::OpADC, MemoryType::ZeroPageX));
-    operations[0x6D] = Some(Operation::new(3, 4, OpType::OpADC, MemoryType::Absolute));
-    operations[0x7D] = Some(Operation::new(3, 4, OpType::OpADC, MemoryType::AbsoluteX));
-    operations[0x79] = Some(Operation::new(3, 4, OpType::OpADC, MemoryType::AbsoluteY));
-    operations[0x61] = Some(Operation::new(2, 6, OpType::OpADC, MemoryType::IndirectX));
-    operations[0x71] = Some(Operation::new(2, 5, OpType::OpADC, MemoryType::IndirectY));
-
-    // AND operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#AND
-    // Perfoms AND operations and writes result to accumulator
-    operations[0x29] = Some(Operation::new(2, 2, OpType::OpAndIm, MemoryType::Immediate));
-    operations[0x25] = Some(Operation::new(2, 3, OpType::OpAND, MemoryType::ZeroPage));
-    operations[0x35] = Some(Operation::new(2, 4, OpType::OpAND, MemoryType::ZeroPageX));
-    operations[0x2D] = Some(Operation::new(3, 4, OpType::OpAND, MemoryType::Absolute));
-    operations[0x3D] = Some(Operation::new(3, 4, OpType::OpAND, MemoryType::AbsoluteX));
-    operations[0x39] = Some(Operation::new(3, 4, OpType::OpAND, MemoryType::AbsoluteY));
-    operations[0x21] = Some(Operation::new(2, 6, OpType::OpAND, MemoryType::IndirectX));
-    operations[0x31] = Some(Operation::new(2, 5, OpType::OpAND, MemoryType::IndirectY));
-
-    // ASL operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#ASL
-    // Perfoms left shift by one bit
-    operations[0x0A] = Some(Operation::new(1, 2, OpType::OpAslA, MemoryType::Accumulator));
-    operations[0x06] = Some(Operation::new(2, 5, OpType::OpASL, MemoryType::ZeroPage));
-    operations[0x16] = Some(Operation::new(2, 6, OpType::OpASL, MemoryType::ZeroPageX));
-    operations[0x0E] = Some(Operation::new(3, 6, OpType::OpASL, MemoryType::Absolute));
-    operations[0x1E] = Some(Operation::new(3, 7, OpType::OpASL, MemoryType::AbsoluteX));
-
-    // BCC operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BCC
-    // Add program counter if carry flag is clear
-    operations[0x90] = Some(Operation::new(2,  2, OpType::OpBCC, MemoryType::Relative));
-
-    // BCS operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BCS
-    // Add program counter if carry flag is set
-    operations[0xB0] = Some(Operation::new(2,  2, OpType::OpBCS, MemoryType::Relative));
-
-    // BEQ operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BEQ
-    // Add program counter if zero flag is set
-    operations[0xF0] = Some(Operation::new(2,  2, OpType::OpBEQ, MemoryType::Relative));
-
-    // BIT operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BIT
-    // Perfoms Acc & data operation then takes 7th and 6th byte of it and transfers to negative and
-    // overflow flags
-    operations[0x24] = Some(Operation::new(2,  3, OpType::OpBIT, MemoryType::ZeroPage));
-    operations[0x2C] = Some(Operation::new(2,  4, OpType::OpBIT, MemoryType::Absolute));
-
-    // BMI operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BMI
-    // Add program counter if negative flag is set
-    operations[0x30] = Some(Operation::new(2,  2, OpType::OpBMI, MemoryType::Relative));
-
-    // BNE operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BNE
-    // Add program counter if zero flag is clear
-    operations[0xD0] = Some(Operation::new(2,  2, OpType::OpBNE, MemoryType::Relative));
-
-    // BPL operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BPL
-    // Add program counter if negative flag is clear
-    operations[0x10] = Some(Operation::new(2,  2, OpType::OpBPL, MemoryType::Relative));
-
-    // BRK operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BRK
-    // Creates interrupt
-    operations[0x00] = Some(Operation::new(1,  7, OpType::OpBRK, MemoryType::Implied));
-
-    // BVC operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BVC
-    // Add program counter if overflow flag is clear
-    operations[0x50] = Some(Operation::new(2,  2, OpType::OpBVC, MemoryType::Relative));
-
-    // BVS operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#BVS
-    // Add program counter if overflow flag is set
-    operations[0x70] = Some(Operation::new(2,  2, OpType::OpBVS, MemoryType::Relative));
-
-    // CLC operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#CLC
-    // Sets carry flag to 0
-    operations[0x18] = Some(Operation::new(1,  2, OpType::OpCLC, MemoryType::Implied));
-
-    // CLD operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#CLD
-    // Sets decimal flag to 0
-    operations[0xD8] = Some(Operation::new(1,  2, OpType::OpCLD, MemoryType::Implied));
-
-    // CLI operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#CLI
-    // Sets interrupt flag to 0
-    operations[0x58] = Some(Operation::new(1,  2, OpType::OpCLI, MemoryType::Implied));
-
-    // CLV operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#CLV
-    // Sets overflow flag to 0
-    operations[0xB8] = Some(Operation::new(1,  2, OpType::OpCLV, MemoryType::Implied));
-
-    // CMP operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#CMP
-    // Compare memory to register A and sets flags
-    operations[0xC9] = Some(Operation::new(2, 2, OpType::OpCmpIm, MemoryType::Immediate));
-    operations[0xC5] = Some(Operation::new(2, 3, OpType::OpCMP, MemoryType::ZeroPage));
-    operations[0xD5] = Some(Operation::new(2, 4, OpType::OpCMP, MemoryType::ZeroPageX));
-    operations[0xCD] = Some(Operation::new(3, 4, OpType::OpCMP, MemoryType::Absolute));
-    operations[0xDD] = Some(Operation::new(3, 4, OpType::OpCMP, MemoryType::AbsoluteX));
-    operations[0xD9] = Some(Operation::new(3, 4, OpType::OpCMP, MemoryType::AbsoluteY));
-    operations[0xC1] = Some(Operation::new(2, 6, OpType::OpCMP, MemoryType::IndirectX));
-    operations[0xD1] = Some(Operation::new(2, 5, OpType::OpCMP, MemoryType::IndirectY));
-
-    // CPX operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#CPX
-    // Compare memory to register X and sets flags
-    operations[0xE0] = Some(Operation::new(2, 2, OpType::OpCpxIm, MemoryType::Immediate));
-    operations[0xE4] = Some(Operation::new(2, 3, OpType::OpCPX, MemoryType::ZeroPage));
-    operations[0xEC] = Some(Operation::new(3, 4, OpType::OpCPX, MemoryType::Absolute));
-
-    // CPY operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#CPY
-    // Compare memory to register Y and sets flags
-    operations[0xC0] = Some(Operation::new(2, 2, OpType::OpCpyIm, MemoryType::Immediate));
-    operations[0xC4] = Some(Operation::new(2, 3, OpType::OpCPY, MemoryType::ZeroPage));
-    operations[0xCC] = Some(Operation::new(3, 4, OpType::OpCPY, MemoryType::Absolute));
-
-    // DEC operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#DEC
-    // Decrement of memory
-    operations[0xC6] = Some(Operation::new(2, 5, OpType::OpDEC, MemoryType::ZeroPage));
-    operations[0xD6] = Some(Operation::new(2, 6, OpType::OpDEC, MemoryType::ZeroPageX));
-    operations[0xCE] = Some(Operation::new(3, 6, OpType::OpDEC, MemoryType::Absolute));
-    operations[0xDE] = Some(Operation::new(3, 7, OpType::OpDEC, MemoryType::AbsoluteX));
-
-    // DEX operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#DEX
-    // Decrement of X reg
-    operations[0xCA] = Some(Operation::new(1, 2, OpType::OpDEX, MemoryType::Implied));
-
-    // DEY operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#DEY
-    // Decrement of Y reg
-    operations[0x88] = Some(Operation::new(1, 2, OpType::OpDEY, MemoryType::Implied));
-
-    // EOR operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#EOR
-    // XOR
-    operations[0x49] = Some(Operation::new(2, 2, OpType::OpEorIm, MemoryType::Immediate));
-    operations[0x45] = Some(Operation::new(2, 3, OpType::OpEOR, MemoryType::ZeroPage));
-    operations[0x55] = Some(Operation::new(2, 4, OpType::OpEOR, MemoryType::ZeroPageX));
-    operations[0x4D] = Some(Operation::new(3, 4, OpType::OpEOR, MemoryType::Absolute));
-    operations[0x5D] = Some(Operation::new(3, 4, OpType::OpEOR, MemoryType::AbsoluteX));
-    operations[0x59] = Some(Operation::new(3, 4, OpType::OpEOR, MemoryType::AbsoluteY));
-    operations[0x41] = Some(Operation::new(2, 6, OpType::OpEOR, MemoryType::IndirectX));
-    operations[0x51] = Some(Operation::new(2, 5, OpType::OpEOR, MemoryType::IndirectY));
-
-    // INC operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#INC
-    // Increments memory
-    operations[0xE6] = Some(Operation::new(2, 5, OpType::OpINC, MemoryType::ZeroPage));
-    operations[0xF6] = Some(Operation::new(2, 6, OpType::OpINC, MemoryType::ZeroPageX));
-    operations[0xEE] = Some(Operation::new(3, 6, OpType::OpINC, MemoryType::Absolute));
-    operations[0xFE] = Some(Operation::new(3, 7, OpType::OpINC, MemoryType::AbsoluteX));
-
-    // INX operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#INX
-    // Increments X register
-    operations[0xE8] = Some(Operation::new(1, 2, OpType::OpINX, MemoryType::Implied));
-
-    // INY operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#INY
-    // Increments Y register
-    operations[0xC8] = Some(Operation::new(1, 2, OpType::OpINY, MemoryType::Implied));
-
-    // JMP operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#JMP
-    // Jumps to another location to run code
-    operations[0x4C] = Some(Operation::new(3, 3, OpType::OpJMP, MemoryType::Absolute));
-    operations[0x6C] = Some(Operation::new(3, 5, OpType::OpJMP, MemoryType::Indirect));
-
-    // JSR operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#JSR
-    // Pushed correct address to the stack and setes program counter to target memory
-    operations[0x20] = Some(Operation::new(3, 6, OpType::OpJSR, MemoryType::Absolute));
-
-    // LDA operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#LDA
-    // Append data to register A
-    operations[0xA9] = Some(Operation::new(2, 2, OpType::OpLdaIm, MemoryType::Immediate));
-    operations[0xA5] = Some(Operation::new(2, 3, OpType::OpLDA, MemoryType::ZeroPage));
-    operations[0xB5] = Some(Operation::new(2, 4, OpType::OpLDA, MemoryType::ZeroPageX));
-    operations[0xAD] = Some(Operation::new(3, 4, OpType::OpLDA, MemoryType::Absolute));
-    operations[0xBD] = Some(Operation::new(3, 4, OpType::OpLDA, MemoryType::AbsoluteX));
-    operations[0xB9] = Some(Operation::new(3, 4, OpType::OpLDA, MemoryType::AbsoluteY));
-    operations[0xA1] = Some(Operation::new(2, 6, OpType::OpLDA, MemoryType::IndirectX));
-    operations[0xB1] = Some(Operation::new(2, 5, OpType::OpLDA, MemoryType::IndirectY));
-
-    // LDX operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#LDX
-    // Append data to register X
-    operations[0xA2] = Some(Operation::new(2, 2, OpType::OpLdxIm, MemoryType::Immediate));
-    operations[0xA6] = Some(Operation::new(2, 3, OpType::OpLDX, MemoryType::ZeroPage));
-    operations[0xB6] = Some(Operation::new(2, 4, OpType::OpLDX, MemoryType::ZeroPageY));
-    operations[0xAE] = Some(Operation::new(3, 4, OpType::OpLDX, MemoryType::Absolute));
-    operations[0xBE] = Some(Operation::new(3, 4, OpType::OpLDX, MemoryType::AbsoluteY));
-
-    // LDY operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#LDY
-    // Append data to register Y
-    operations[0xA0] = Some(Operation::new(2, 2, OpType::OpLdyIm, MemoryType::Immediate));
-    operations[0xA4] = Some(Operation::new(2, 3, OpType::OpLDY, MemoryType::ZeroPage));
-    operations[0xB4] = Some(Operation::new(2, 4, OpType::OpLDY, MemoryType::ZeroPageX));
-    operations[0xAC] = Some(Operation::new(3, 4, OpType::OpLDY, MemoryType::Absolute));
-    operations[0xBC] = Some(Operation::new(3, 4, OpType::OpLDY, MemoryType::AbsoluteX));
-
-    // LSR operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#LSR
-    // Perfoms logical shift right
-    operations[0x4A] = Some(Operation::new(1, 2, OpType::OpLsrA, MemoryType::Accumulator));
-    operations[0x46] = Some(Operation::new(2, 5, OpType::OpLSR, MemoryType::ZeroPage));
-    operations[0x56] = Some(Operation::new(2, 6, OpType::OpLSR, MemoryType::ZeroPageX));
-    operations[0x4E] = Some(Operation::new(3, 6, OpType::OpLSR, MemoryType::Absolute));
-    operations[0x5E] = Some(Operation::new(3, 7, OpType::OpLSR, MemoryType::AbsoluteX));
-
-    // NOP operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#NOP
-    // No operation, just inc of program counter and cpu cycles
-    operations[0xEA] = Some(Operation::new(1, 2, OpType::OpNOP, MemoryType::Implied));
-
-    // ORA operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#ORA
-    // Inclusive OR between accumulator and other memory
-    operations[0x09] = Some(Operation::new(2, 2, OpType::OpOraIm, MemoryType::Immediate));
-    operations[0x05] = Some(Operation::new(2, 3, OpType::OpORA, MemoryType::ZeroPage));
-    operations[0x15] = Some(Operation::new(2, 4, OpType::OpORA, MemoryType::ZeroPageX));
-    operations[0x0D] = Some(Operation::new(3, 4, OpType::OpORA, MemoryType::Absolute));
-    operations[0x1D] = Some(Operation::new(3, 4, OpType::OpORA, MemoryType::AbsoluteX));
-    operations[0x19] = Some(Operation::new(3, 4, OpType::OpORA, MemoryType::AbsoluteY));
-    operations[0x01] = Some(Operation::new(2, 6, OpType::OpORA, MemoryType::IndirectX));
-    operations[0x11] = Some(Operation::new(2, 5, OpType::OpORA, MemoryType::IndirectY));
-
-    // PHA operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#PHA
-    // Pushes register A to the stack
-    operations[0x48] = Some(Operation::new(1, 3, OpType::OpPHA, MemoryType::Implied));
-
-    // PHP operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#PHP
-    // Pushes cpu status to the stack
-    operations[0x08] = Some(Operation::new(1, 3, OpType::OpPHP, MemoryType::Implied));
-
-    // PLA operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#PLA
-    // Sets register A from the stack
-    operations[0x68] = Some(Operation::new(1, 4, OpType::OpPLA, MemoryType::Implied));
-
-    // PLP operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#PLP
-    // Sets processor status from the stack
-    operations[0x28] = Some(Operation::new(1, 4, OpType::OpPLP, MemoryType::Implied));
-
-    // ROL instructions - https://www.nesdev.org/obelisk-6502-guide/reference.html#ROL
-    // Left shift with carry manipulations
-    operations[0x2A] = Some(Operation::new(1, 2, OpType::OpRolA, MemoryType::Accumulator));
-    operations[0x26] = Some(Operation::new(2, 5, OpType::OpROL, MemoryType::ZeroPage));
-    operations[0x36] = Some(Operation::new(2, 6, OpType::OpROL, MemoryType::ZeroPageX));
-    operations[0x2E] = Some(Operation::new(3, 6, OpType::OpROL, MemoryType::Absolute));
-    operations[0x3E] = Some(Operation::new(3, 7, OpType::OpROL, MemoryType::AbsoluteX));
-    
-    // ROR instructions - https://www.nesdev.org/obelisk-6502-guide/reference.html#ROR
-    // Right shift with carry manipulations
-    operations[0x6A] = Some(Operation::new(1, 2, OpType::OpRorA, MemoryType::Accumulator));
-    operations[0x66] = Some(Operation::new(2, 5, OpType::OpROR, MemoryType::ZeroPage));
-    operations[0x76] = Some(Operation::new(2, 6, OpType::OpROR, MemoryType::ZeroPageX));
-    operations[0x6E] = Some(Operation::new(3, 6, OpType::OpROR, MemoryType::Absolute));
-    operations[0x7E] = Some(Operation::new(3, 7, OpType::OpROR, MemoryType::AbsoluteX));
-
-    // RTI operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#RTI
-    // Pulls processor flag from the stack and then pull porgram counter from it
-    operations[0x40] = Some(Operation::new(1, 6, OpType::OpRTI, MemoryType::Implied));
-
-    // RTS operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#RTS
-    // Pulls program counter (minus one) from stack
-    operations[0x60] = Some(Operation::new(1, 6, OpType::OpRTS, MemoryType::Implied));
-
-    // SBC operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
-    // Substructs content of a memory locations to the accumulator
-    operations[0xE9] = Some(Operation::new(2, 2, OpType::OpSBCIm, MemoryType::Immediate));
-    operations[0xE5] = Some(Operation::new(2, 3, OpType::OpSBC, MemoryType::ZeroPage));
-    operations[0xF5] = Some(Operation::new(2, 4, OpType::OpSBC, MemoryType::ZeroPageX));
-    operations[0xED] = Some(Operation::new(3, 4, OpType::OpSBC, MemoryType::Absolute));
-    operations[0xFD] = Some(Operation::new(3, 4, OpType::OpSBC, MemoryType::AbsoluteX));
-    operations[0xF9] = Some(Operation::new(3, 4, OpType::OpSBC, MemoryType::AbsoluteY));
-    operations[0xE1] = Some(Operation::new(2, 6, OpType::OpSBC, MemoryType::IndirectX));
-    operations[0xF1] = Some(Operation::new(2, 5, OpType::OpSBC, MemoryType::IndirectY));
-
-    // SEC operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#SEC
-    // Sets carry flag to one
-    operations[0x38] = Some(Operation::new(1, 2, OpType::OpSEC, MemoryType::Implied));
-
-    // SED operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#SED
-    // Sets decimal flag to one
-    operations[0xF8] = Some(Operation::new(1, 2, OpType::OpSED, MemoryType::Implied));
-
-    // SEI operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#SEI
-    // Sets interrupt disable flag to one
-    operations[0x78] = Some(Operation::new(1, 2, OpType::OpSEI, MemoryType::Implied));
-
-    // STA operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#STA
-    // Append data from register A to memory
-    operations[0x85] = Some(Operation::new(2, 3, OpType::OpSTA, MemoryType::ZeroPage));
-    operations[0x95] = Some(Operation::new(2, 4, OpType::OpSTA, MemoryType::ZeroPageX));
-    operations[0x8D] = Some(Operation::new(3, 4, OpType::OpSTA, MemoryType::Absolute));
-    operations[0x9D] = Some(Operation::new(3, 5, OpType::OpSTA, MemoryType::AbsoluteX));
-    operations[0x99] = Some(Operation::new(3, 5, OpType::OpSTA, MemoryType::AbsoluteY));
-    operations[0x81] = Some(Operation::new(2, 6, OpType::OpSTA, MemoryType::IndirectX));
-    operations[0x91] = Some(Operation::new(2, 6, OpType::OpSTA, MemoryType::IndirectY));
-
-    // STX operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#STX
-    // Append data from register X to memory
-    operations[0x86] = Some(Operation::new(2, 3, OpType::OpSTX, MemoryType::ZeroPage));
-    operations[0x96] = Some(Operation::new(2, 4, OpType::OpSTX, MemoryType::ZeroPageY));
-    operations[0x8E] = Some(Operation::new(3, 4, OpType::OpSTX, MemoryType::Absolute));
-
-    // STY operations - https://www.nesdev.org/obelisk-6502-guide/reference.html#STY
-    // Append data from register Y to memory
-    operations[0x84] = Some(Operation::new(2, 3, OpType::OpSTY, MemoryType::ZeroPage));
-    operations[0x94] = Some(Operation::new(2, 4, OpType::OpSTY, MemoryType::ZeroPageY));
-    operations[0x8C] = Some(Operation::new(3, 4, OpType::OpSTY, MemoryType::Absolute));
-
-    // TAX operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#TAX
-    // Content from A reg to X reg
-    operations[0xAA] = Some(Operation::new(1, 2, OpType::OpTAX, MemoryType::Implied));
-
-    // TAY operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#TAY
-    // Content from A reg to Y reg
-    operations[0xA8] = Some(Operation::new(1, 2, OpType::OpTAY, MemoryType::Implied));
-
-    // TSX operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#TSX
-    // Copies content from stack reg to X
-    operations[0xBA] = Some(Operation::new(1, 2, OpType::OpTSX, MemoryType::Implied));
-    
-    // TXA operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#TXA
-    // Copies content from reg X to reg A
-    operations[0x8A] = Some(Operation::new(1, 2, OpType::OpTXA, MemoryType::Implied));
-
-    // TXS operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#TXS
-    // Copies content from reg X to stack reg
-    operations[0x9A] = Some(Operation::new(1, 2, OpType::OpTXS, MemoryType::Implied));
-
-    // TYA operation - https://www.nesdev.org/obelisk-6502-guide/reference.html#TYA
-    // Copies content from Y reg to A reg
-    operations[0x98] = Some(Operation::new(1, 2, OpType::OpTYA, MemoryType::Implied));
-
-    info!("Operations array created with {} elements", operations.iter().filter(|val| val.is_some()).count());
-
-    operations
+impl std::fmt::Display for Operation {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{} at {}", self.op_name, self.memory_type)
+    }
 }

@@ -1,192 +1,150 @@
+use better_assertions::inst_assert;
+
+use crate::cpu::{NEGATIVE_FLAG, ZERO_FLAG};
+
+const NEGATIVE_FLAG_BIT: u8 = 0b0000_0001 << NEGATIVE_FLAG;
+const ZERO_FLAG_BIT: u8 = 0b0000_0001 << ZERO_FLAG;
+
 #[inline(always)]
-pub fn update_zero_and_neg_flags(cpu_status: u8, op_result: u8) -> u8 {
-    // If first bit is one -> true value is negative
-    if op_result >= 128 {
-        // set neg -> set non_zero
-        (cpu_status | 0b1000_0000) & 0b1111_1101
-    } else if op_result == 0 {
-        // set not neg -> set zero
-        (cpu_status & 0b0111_1111) | 0b0000_0010
+pub fn update_zero_and_neg_flags(cpu_status: &mut u8, op_result: u8) {
+    if op_result == 0 {
+        *cpu_status |= ZERO_FLAG_BIT;
+        *cpu_status &= !NEGATIVE_FLAG_BIT; 
     } else {
-        // set non_zero -> set non_neg
-        cpu_status & 0b0111_1101
+        *cpu_status = (*cpu_status & !NEGATIVE_FLAG_BIT) | (op_result & NEGATIVE_FLAG_BIT);
+        *cpu_status &= !ZERO_FLAG_BIT;
     }
 }
 
 #[inline(always)]
-pub fn update_carry_flag_by_7_bit(cpu_status: u8, value: u8) -> u8 {
-    if value & 0b1000_0000 != 0b1000_0000 {
-        cpu_status & 0b1111_1110
-    } else {
-        cpu_status | 0b0000_0001
-    }
+pub fn is_flag_set(cpu_status: &u8, flag_to_check: usize) -> bool {
+    inst_assert!((0..=7).contains(&flag_to_check));
+    cpu_status & (0b0000_0001 << flag_to_check) == (0b0000_0001 << flag_to_check)
 }
 
 #[inline(always)]
-pub fn update_carry_flag(cpu_status: u8, value: u8) -> u8 {
-    if value & 0b0000_0001 != 0b0000_0001 {
-        cpu_status & 0b1111_1110
-    } else {
-        cpu_status | 0b0000_0001
-    }
-}
-
-#[inline(always)]
-pub fn set_overflow_flag(cpu_status: u8, is_one: bool) -> u8 {
+pub fn set_flag(cpu_status: &mut u8, flag_to_check: usize, is_one: bool) {
+    inst_assert!((0..=7).contains(&flag_to_check));
     if is_one {
-        cpu_status | 0b0100_0000
+        *cpu_status |= 0b0000_0001 << flag_to_check
     } else {
-        cpu_status & 0b1011_1111
+        *cpu_status &= !(0b0000_0001 << flag_to_check)
     }
 }
 
-#[inline(always)]
-pub fn set_interrupt_flag(cpu_status: u8, is_one: bool) -> u8 {
-    if is_one {
-        cpu_status | 0b0000_0100
-    } else {
-        cpu_status & 0b1111_1011
-    }
-}
 
 #[inline(always)]
-pub fn set_decimal_flag(cpu_status: u8, is_one: bool) -> u8 {
-    if is_one {
-        cpu_status | 0b0000_1000
-    } else {
-        cpu_status & 0b1111_0111
-    }
-}
-
-#[inline(always)]
-pub fn set_carry_flag(cpu_status: u8, is_one: bool) -> u8 {
-    if is_one {
-        cpu_status | 0b0000_0001
-    } else {
-        cpu_status & 0b1111_1110
-    }
-}
-
-#[inline(always)]
-pub fn set_zero_flag(cpu_status: u8, is_one: bool) -> u8 {
-    if is_one {
-        cpu_status | 0b0000_0010
-    } else {
-        cpu_status & 0b1111_1101
-    }
-}
-
-#[inline(always)]
-pub fn set_negative_flag(cpu_status: u8, is_one: bool) -> u8 {
-    if is_one {
-        cpu_status | 0b1000_0000
-    } else {
-        cpu_status & 0b0111_1111
-    }
-}
-
-#[inline(always)]
-pub fn get_flag_inl(cpu_status: u8, flag_to_find: u8) -> bool {
-    // 7 6 5 4 3 2 1 0
-    // N V _ B D I Z C
-    // Read more in cpu.rs
-    if flag_to_find > 7 { panic!("Unreachable flag tried to be setted for cpu status") }
-    (cpu_status >> flag_to_find) % 2 == 1
+pub fn transfer_bit(transfer_to: &mut u8, transfer_from: &u8, bit_num: usize) {
+    inst_assert!((0..=7).contains(&bit_num));
+    let tr_bit = 0b0000_0001 << bit_num;
+    *transfer_to = (*transfer_to & !tr_bit) | (transfer_from & tr_bit);
 }
 
 #[test]
 fn test_update_zero_and_neg_flags() {
-    assert_eq!(update_zero_and_neg_flags(0b0000_0000, 255), 0b1000_0000);
-    assert_eq!(update_zero_and_neg_flags(0b0000_0000, 128), 0b1000_0000);
-    assert_eq!(update_zero_and_neg_flags(0b0000_0000, 127), 0b0000_0000);
-    assert_eq!(update_zero_and_neg_flags(0b0000_0000, 1), 0b0000_0000);
-    assert_eq!(update_zero_and_neg_flags(0b0000_0000, 0), 0b0000_0010);
-}
-
-#[test]
-fn test_update_carry_flag() {
-    assert_eq!(update_carry_flag(0b0000_0000, 1), 0b0000_0001);
-    assert_eq!(update_carry_flag(0b0000_0000, 127), 0b0000_0001);
-    assert_eq!(update_carry_flag(0b0000_0000, 128), 0b0000_0000);
-    assert_eq!(update_carry_flag(0b0000_0000, 0), 0b0000_0000);
-}
-
-#[test]
-fn test_update_carry_flag_by_7_bit() {
-    assert_eq!(update_carry_flag_by_7_bit(0b0000_0000, 1), 0b0000_0000);
-    assert_eq!(update_carry_flag_by_7_bit(0b0000_0000, 127), 0b0000_0000);
-    assert_eq!(update_carry_flag_by_7_bit(0b0000_0000, 128), 0b0000_0001);
-    assert_eq!(update_carry_flag_by_7_bit(0b0000_0000, 255), 0b0000_0001);
-    assert_eq!(update_carry_flag_by_7_bit(0b0000_0000, 0), 0b0000_0000);
-}
-
-#[test]
-fn test_set_interupt_flag() {
-    assert_eq!(set_interrupt_flag(0b0000_0000, true), 0b0000_0100);
-    assert_eq!(set_interrupt_flag(0b0000_0000, false), 0b0000_0000);
-    assert_eq!(set_interrupt_flag(0b1111_1111, true), 0b1111_1111);
-    assert_eq!(set_interrupt_flag(0b1111_1111, false), 0b1111_1011);
-}
-
-#[test]
-fn test_set_decimal_flag() {
-    assert_eq!(set_decimal_flag(0b0000_0000, true), 0b0000_1000);
-    assert_eq!(set_decimal_flag(0b0000_0000, false), 0b0000_0000);
-    assert_eq!(set_decimal_flag(0b1111_1111, true), 0b1111_1111);
-    assert_eq!(set_decimal_flag(0b1111_1111, false), 0b1111_0111);
-}
-
-#[test]
-fn test_set_carry_flag() {
-    assert_eq!(set_carry_flag(0b0000_0000, true), 0b0000_0001);
-    assert_eq!(set_carry_flag(0b0000_0000, false), 0b0000_0000);
-    assert_eq!(set_carry_flag(0b1111_1111, true), 0b1111_1111);
-    assert_eq!(set_carry_flag(0b1111_1111, false), 0b1111_1110);
-}
-
-#[test]
-fn test_set_overflow_flag() {
-    assert_eq!(set_overflow_flag(0b0000_0000, true), 0b0100_0000);
-    assert_eq!(set_overflow_flag(0b0000_0000, false), 0b0000_0000);
-    assert_eq!(set_overflow_flag(0b1111_1111, true), 0b1111_1111);
-    assert_eq!(set_overflow_flag(0b1111_1111, false), 0b1011_1111);
-}
-
-#[test]
-fn test_set_zero_flag() {
-    assert_eq!(set_zero_flag(0b0000_0000, true), 0b0000_0010);
-    assert_eq!(set_zero_flag(0b0000_0000, false), 0b0000_0000);
-    assert_eq!(set_zero_flag(0b1111_1111, true), 0b1111_1111);
-    assert_eq!(set_zero_flag(0b1111_1111, false), 0b1111_1101);
-}
-
-#[test]
-fn test_set_negative_flag() {
-    assert_eq!(set_negative_flag(0b0000_0000, true), 0b1000_0000);
-    assert_eq!(set_negative_flag(0b0000_0000, false), 0b0000_0000);
-    assert_eq!(set_negative_flag(0b1111_1111, true), 0b1111_1111);
-    assert_eq!(set_negative_flag(0b1111_1111, false), 0b0111_1111);
-}
-
-#[test]
-fn test_get_flag_inl() {
-    let first_status = 0b1010_1010;
-    let second_status = 0b0101_0101;
-
-    for now_i in 0..=7 {
-        if now_i == 5 { continue }
-        if now_i % 2 == 0 {
-            assert!(!get_flag_inl(first_status, now_i));
-        } else {
-            assert!(get_flag_inl(first_status, now_i));
-        }
-
-        if now_i % 2 == 0 {
-            assert!(get_flag_inl(second_status, now_i));
-        } else {
-            assert!(!get_flag_inl(second_status, now_i));
+    for i in 0..=255 {
+        for result_value in [0b1111_1111, 0b1000_0000, 0b0111_1111, 0b0000_0001, 0b0000_0000] {
+            cmp_res(i, result_value);
         }
     }
 
-    assert_eq!(!first_status, second_status);
+    fn cmp_res(old_status: u8, result_value: u8) {
+        let mut new_status = old_status;
+        update_zero_and_neg_flags(&mut new_status, result_value);
+
+        let preserved_mask = !(ZERO_FLAG_BIT | NEGATIVE_FLAG_BIT);
+        assert_eq!(new_status & preserved_mask, old_status & preserved_mask, "Unrelated flags modified");
+        assert_eq!(new_status & NEGATIVE_FLAG_BIT, result_value & NEGATIVE_FLAG_BIT, "NEGATIVE flag incorrect");
+        assert_eq!(new_status & ZERO_FLAG_BIT == ZERO_FLAG_BIT, result_value == 0, "ZERO flag incorrect");
+    }
+}
+
+#[test]
+fn test_is_flag_set() {
+    use rand::{SeedableRng, Rng};
+    use rand::rngs::StdRng;
+
+    let mut rng: StdRng = StdRng::seed_from_u64(42);
+
+    for _ in 0..1000 {
+        let bool_arr: [bool; 8] = rng.random();
+
+        let mut random_value = 0b0000_0000;
+        for (now_shift, now_bool) in bool_arr.iter().enumerate() {
+            if *now_bool {
+                random_value |= 0b0000_0001 << now_shift
+            }
+        }
+
+        for (now_id, now_flag) in bool_arr.iter().enumerate() {
+            assert_eq!(is_flag_set(&random_value, now_id), *now_flag);
+        }
+    }
+}
+
+#[test]
+// Depends on is_flag_set
+fn test_set_flag() {
+    use rand::{SeedableRng, Rng};
+    use rand::rngs::StdRng;
+
+    let mut rng: StdRng = StdRng::seed_from_u64(42);
+
+    for _ in 0..1000 {
+        let bool_arr: [bool; 8] = rng.random();
+
+        let mut random_value = 0b0000_0000;
+        for (now_shift, now_bool) in bool_arr.iter().enumerate() {
+            if *now_bool {
+                random_value |= 0b0000_0001 << now_shift
+            }
+        }
+
+        for (now_id, now_flag) in bool_arr.iter().enumerate() {
+            let mut new_value = random_value;
+
+            set_flag(&mut new_value, now_id, !now_flag);
+            for (now_id_ck, now_flag_ck) in bool_arr.iter().enumerate() {
+                if now_id_ck != now_id {
+                    assert_eq!(is_flag_set(&new_value, now_id_ck), *now_flag_ck);
+                } else {
+                    assert_eq!(is_flag_set(&new_value, now_id_ck), !*now_flag_ck);
+                }
+            }
+
+            set_flag(&mut new_value, now_id, *now_flag);
+            for (now_id_ck, now_flag_ck) in bool_arr.iter().enumerate() {
+                assert_eq!(is_flag_set(&new_value, now_id_ck), *now_flag_ck);
+            }
+        }
+    }
+}
+
+#[test]
+// Depends on is_flag_set
+fn test_transfer_bit() {
+    use rand::{SeedableRng, Rng};
+    use rand::rngs::StdRng;
+
+    let mut rng: StdRng = StdRng::seed_from_u64(42);
+
+    for _ in 0..1000 {
+        let bool_arr: [bool; 8] = rng.random();
+
+        let mut random_value = 0b0000_0000;
+        for (now_shift, now_bool) in bool_arr.iter().enumerate() {
+            if *now_bool {
+                random_value |= 0b0000_0001 << now_shift
+            }
+        }
+
+        let mut random_target: u8 = rng.random::<u8>();
+
+        for (now_id, now_flag) in bool_arr.iter().enumerate() {
+            transfer_bit(&mut random_target, &random_value, now_id);
+            assert_eq!(is_flag_set(&random_target, now_id), *now_flag)
+        }
+
+        assert_eq!(random_target, random_value);
+    }
 }
