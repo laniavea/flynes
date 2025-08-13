@@ -55,6 +55,15 @@ impl Cpu {
         debug!("Initialized PC: {exec_pc}")
     }
 
+    pub fn set_pc(&mut self, exec_pc: u16) {
+        self.program_counter = exec_pc;
+        debug!("Initialized PC: {exec_pc}")
+    }
+
+    pub fn program_counter(&self) -> u16 {
+        self.program_counter
+    }
+
     pub fn init_sp(&mut self, new_stack_pointer: u8) {
         self.stack_pointer = new_stack_pointer
     }
@@ -157,26 +166,28 @@ impl Cpu {
 
         match now_inst.op_name() {
             CPUInstByte::One(inst_entry) => {
+                self.program_counter += 1;
                 self.execute_inst_1_byte(inst_entry, memory);
             },
             CPUInstByte::Two(inst_entry) => {
                 let mut next_data_byte = memory.get_8bit_value(self.program_counter.wrapping_add(1));
                 let target_byte = self.get_by_1byte_address(now_inst.memory_type(), &mut next_data_byte, memory);
-                self.program_counter += 1;
+                trace!("Data fetched: {target_byte}");
+                self.program_counter += 2;
                 self.execute_inst_2_byte(inst_entry, target_byte);
             },
             CPUInstByte::Three(inst_entry) => {
                 let next_value = memory.get_16bit_value(self.program_counter.wrapping_add(1));
                 let target_address = self.conv_2byte_address(now_inst.memory_type(), next_value, memory);
-                self.program_counter += 2;
+                trace!("Data fetched: {target_address}");
+                self.program_counter += 3;
                 self.execute_inst_3_byte(inst_entry, target_address, memory);
             },
             CPUInstByte::NoOp => {
-                // error!("Trying to parse NoOp instruction at {} with hex {now_command}", self.program_counter);
+                error!("Trying to parse NoOp instruction at {} with hex {now_command}", self.program_counter);
                 return Err("NoOp parsed")
             }
         }
-        self.program_counter += 1;
 
         Ok(now_inst.cycles())
     }

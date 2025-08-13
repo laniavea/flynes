@@ -298,11 +298,11 @@ pub const fn init_all_operations() -> ([Operation; 256], usize) {
     oper_counter += 8;
 
     // LDX operations
-    all_operations[0xA2] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::LDAop));
-    all_operations[0xA6] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::LDAop));
-    all_operations[0xB6] = Operation::new(4, MemoryType::ZeroPageY, CPUInstByte::Two(Inst2Byte::LDAop));
-    all_operations[0xAE] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::LDAop));
-    all_operations[0xBE] = Operation::new(4, MemoryType::AbsoluteY, CPUInstByte::Three(Inst3Byte::LDAop));
+    all_operations[0xA2] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::LDXop));
+    all_operations[0xA6] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::LDXop));
+    all_operations[0xB6] = Operation::new(4, MemoryType::ZeroPageY, CPUInstByte::Two(Inst2Byte::LDXop));
+    all_operations[0xAE] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::LDXop));
+    all_operations[0xBE] = Operation::new(4, MemoryType::AbsoluteY, CPUInstByte::Three(Inst3Byte::LDXop));
 
     all_operations[0xBE].set_cycles_page_crossed(1);
     oper_counter += 5;
