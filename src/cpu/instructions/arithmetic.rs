@@ -58,24 +58,24 @@ impl Cpu {
     /// Compares memory with register A, changes cpu status
     /// Possible operation HEX: 0xC9, 0xC5, 0xD5, 0xCD, 0xDD, 0xD9, 0xC1, 0xD1
     pub fn op_cmp(&mut self, data_ref: &u8) {
+        set_flag(&mut self.cpu_status, CARRY_FLAG, self.reg_a >= *data_ref);
         let temp_res = self.reg_a.wrapping_sub(*data_ref);
-        set_flag(&mut self.cpu_status, CARRY_FLAG, self.reg_a >= temp_res);
         update_zero_and_neg_flags(&mut self.cpu_status, temp_res);
     }
 
     /// Compares memory with register X, changes cpu status
     /// Possible operation HEX: 0xE0, 0xE4, 0xEC
     pub fn op_cpx(&mut self, data_ref: &u8) {
+        set_flag(&mut self.cpu_status, CARRY_FLAG, self.reg_x >= *data_ref);
         let temp_res = self.reg_x.wrapping_sub(*data_ref);
-        set_flag(&mut self.cpu_status, CARRY_FLAG, self.reg_a >= temp_res);
         update_zero_and_neg_flags(&mut self.cpu_status, temp_res);
     }
 
     /// Compares memory with register Y, changes cpu status
     /// Possible operation HEX: 0xC0, 0xC4, 0xCC
     pub fn op_cpy(&mut self, data_ref: &u8) {
+        set_flag(&mut self.cpu_status, CARRY_FLAG, self.reg_y >= *data_ref);
         let temp_res = self.reg_y.wrapping_sub(*data_ref);
-        set_flag(&mut self.cpu_status, CARRY_FLAG, self.reg_a >= temp_res);
         update_zero_and_neg_flags(&mut self.cpu_status, temp_res);
     }
 }

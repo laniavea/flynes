@@ -51,8 +51,11 @@ fn test_logical_operations() {
 
         cpu.reg_a = random_v;
         cpu.op_ora(&0b0000_0000);
+        test_zero_and_neg(cpu.cpu_status, cpu.reg_a);
         cpu.op_and(&0b1111_1111);
+        test_zero_and_neg(cpu.cpu_status, cpu.reg_a);
         cpu.op_eor(&0b0000_0000);
+        test_zero_and_neg(cpu.cpu_status, cpu.reg_a);
         assert_eq!(cpu.reg_a, random_v);
 
         cpu.cpu_status = random_st;

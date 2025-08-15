@@ -48,9 +48,11 @@ fn test_register_transfer() {
     for _ in 0..1000 {
         let random_v = rng.random::<u8>();
         let random_st = rng.random::<u8>();
+        let first_random_offset = rng.random::<u8>();
+        let second_random_offset = rng.random::<u8>();
 
-        cpu.reg_a = random_v.wrapping_add(10);
-        cpu.reg_y = random_v.wrapping_add(10);
+        cpu.reg_a = random_v.wrapping_add(first_random_offset);
+        cpu.reg_y = random_v.wrapping_add(second_random_offset);
         cpu.reg_x = random_v;
 
         cpu.cpu_status = random_st;
@@ -61,10 +63,10 @@ fn test_register_transfer() {
         cpu.op_tay();
         test_zero_and_neg(cpu.cpu_status, random_v);
 
-        assert!(!([cpu.reg_a, cpu.reg_x, cpu.reg_y].iter().any(|v| *v != random_v)));
+        assert_eq!([cpu.reg_a, cpu.reg_x, cpu.reg_y], [random_v; 3]);
 
-        cpu.reg_a = random_v.wrapping_add(10);
-        cpu.reg_x = random_v.wrapping_add(10);
+        cpu.reg_a = random_v.wrapping_add(second_random_offset);
+        cpu.reg_x = random_v.wrapping_add(first_random_offset);
 
         cpu.cpu_status = random_st;
         cpu.op_tya();
@@ -74,7 +76,7 @@ fn test_register_transfer() {
         cpu.op_tax();
         test_zero_and_neg(cpu.cpu_status, random_v);
 
-        assert!(!([cpu.reg_a, cpu.reg_x, cpu.reg_y].iter().any(|v| *v != random_v)));
+        assert_eq!([cpu.reg_a, cpu.reg_x, cpu.reg_y], [random_v; 3]);
     }
 
     fn test_zero_and_neg(cpu_status: u8, target_value: u8) {

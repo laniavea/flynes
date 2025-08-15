@@ -80,8 +80,7 @@ fn test_load_store_ops() {
 
         assert_eq!(is_flag_set(&cpu.cpu_status, ZERO_FLAG), now_value == 0);
         assert_eq!(is_flag_set(&cpu.cpu_status, NEGATIVE_FLAG), now_value >= 0b1000_0000);
-
-        assert!(!([cpu.reg_a, cpu.reg_x, cpu.reg_y].iter().any(|v| *v != now_value as u8)));
+        assert_eq!([cpu.reg_a, cpu.reg_x, cpu.reg_y], [now_value as u8; 3]);
 
         cpu.op_sta(mem.get_mut(now_value).unwrap());
         cpu.op_stx(mem.get_mut(now_value + OFFSET).unwrap());
