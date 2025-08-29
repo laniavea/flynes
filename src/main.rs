@@ -2,6 +2,7 @@ use log::info;
 
 pub mod cpu;
 pub mod memory;
+pub mod cartridges;
 
 fn main() {
     pretty_env_logger::init();

@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 log = { version = "0.4.22", features = ["max_level_trace", "release_max_level_error"] }
 pretty_env_logger = "0.5.0"
-better_assertions = {path = "../BetterAssertions/", version = "0.1.2", features = ["debug_max_level_slow", "debug_store_level_moderate", "max_level_slow"]}
+better_assertions = {path = "../BetterAssertions/", version = "0.1.2", features = ["debug_max_level_slow", "max_level_slow"]}
 rand = "0.9.1"
 
 [profile.release-debug]

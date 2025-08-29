@@ -1,15 +1,18 @@
+use better_assertions::inst_assert;
+
 use crate::cpu::Cpu;
-use crate::cpu::BREAK_FLAG;
-use crate::cpu::instructions::shared_ops::set_flag;
+use crate::cpu::{BREAK_FLAG, UNUSED_FLAG};
+use crate::cpu::instructions::shared_ops::{set_flag, is_flag_set};
 use crate::memory::Memory;
 
 impl Cpu {
     /// Creates forced interrupt
     pub fn op_brk(&mut self, mem: &mut Memory) {
+        set_flag(&mut self.cpu_status, BREAK_FLAG, true);
+        inst_assert!(is_flag_set(&self.cpu_status, UNUSED_FLAG));
         mem.stack_push_16bit(self.program_counter, &mut self.stack_pointer);
         mem.stack_push_8bit(self.cpu_status, &mut self.stack_pointer);
         self.program_counter = mem.get_16bit_value(0xFFFE);
-        set_flag(&mut self.cpu_status, BREAK_FLAG, true);
     }
 
     /// Do literally nothing outside normal change of PC
@@ -41,7 +44,7 @@ fn test_system_functions() {
 
     for _ in 0..1000 {
         let old_random_pc = rng.random::<u16>();
-        let random_cpu_status = rng.random::<u8>();
+        let random_cpu_status = rng.random::<u8>() | (0b0000_0001 << UNUSED_FLAG);
         let new_random_pc = rng.random::<u16>();
 
         *memory.get_mut_8bit_value(0xFFFEu16) = new_random_pc as u8;
@@ -58,7 +61,7 @@ fn test_system_functions() {
         assert_eq!(cpu.cpu_status, random_cpu_status | (0b0000_0001 << BREAK_FLAG));
 
         cpu.op_rti(&memory);
-        assert_eq!(cpu.cpu_status, random_cpu_status);
+        assert_eq!(cpu.cpu_status, random_cpu_status | (0b0000_0001 << BREAK_FLAG));
         assert_eq!(cpu.program_counter, old_random_pc);
     }
 }

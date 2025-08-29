@@ -5,14 +5,14 @@ use crate::cpu::instructions::shared_ops::{update_zero_and_neg_flags, set_flag, 
 impl Cpu {
     /// Performs arithmetic shift left on memory
     pub fn op_asl(&mut self, data_ref: &mut u8) {
-        set_flag(&mut self.cpu_status, CARRY_FLAG, *data_ref >= 0b1000_0000);
+        set_flag(&mut self.cpu_status, CARRY_FLAG, *data_ref & 0b1000_0000 == 0b1000_0000);
         *data_ref <<= 1;
         update_zero_and_neg_flags(&mut self.cpu_status, *data_ref)
     }
 
     /// Performs arithmetic shift left on accumulator
     pub fn op_asl_acc(&mut self) {
-        set_flag(&mut self.cpu_status, CARRY_FLAG, self.reg_a >= 0b1000_0000);
+        set_flag(&mut self.cpu_status, CARRY_FLAG, self.reg_a & 0b1000_0000 == 0b1000_0000);
         self.reg_a <<= 1;
         update_zero_and_neg_flags(&mut self.cpu_status, self.reg_a)
     }
@@ -34,7 +34,7 @@ impl Cpu {
     /// Rotate left for memory
     pub fn op_rol(&mut self, data_ref: &mut u8) {
         let previous_carry_flag = is_flag_set(&self.cpu_status, CARRY_FLAG);
-        set_flag(&mut self.cpu_status, CARRY_FLAG, *data_ref >= 0b1000_0000);
+        set_flag(&mut self.cpu_status, CARRY_FLAG, *data_ref & 0b1000_0000 == 0b1000_0000);
         *data_ref <<= 1;
         if previous_carry_flag {
             *data_ref |= 0b0000_0001;
@@ -45,7 +45,7 @@ impl Cpu {
     /// Rotate left for accumulator
     pub fn op_rol_acc(&mut self) {
         let previous_carry_flag = is_flag_set(&self.cpu_status, CARRY_FLAG);
-        set_flag(&mut self.cpu_status, CARRY_FLAG, self.reg_a >= 0b1000_0000);
+        set_flag(&mut self.cpu_status, CARRY_FLAG, self.reg_a & 0b1000_0000 == 0b1000_0000);
         self.reg_a <<= 1;
         if previous_carry_flag {
             self.reg_a |= 0b0000_0001;
