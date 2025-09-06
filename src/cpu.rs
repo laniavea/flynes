@@ -50,7 +50,7 @@ impl Default for Cpu {
 
 impl Cpu {
     pub fn init_pc(&mut self, memory: &Memory) {
-        let exec_pc = memory.get_16bit_value(0xFFFE);
+        let exec_pc = memory.get_16bit_value(0xFFFC);
         self.program_counter = exec_pc;
         debug!("Initialized PC: {exec_pc}")
     }

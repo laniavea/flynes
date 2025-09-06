@@ -7,6 +7,8 @@ use log::{error, info, debug};
 use crate::cpu::Cpu;
 use crate::memory::Memory;
 
+const PRGROM_bytes_in_units: usize = 16384;
+
 const CB1_VRAM_LAYOUT: usize = 3;
 const CB1_TRAINER: usize = 2;
 const CB1_BATTERY_RAM: usize = 1;
@@ -16,6 +18,7 @@ const CB1_MIRRORING_TYPE: usize = 0;
 enum NesCartridgeError {
     NoNESHeader,
     NESHeaderMustBeZero,
+    PRGROMIncorrectNumber,
 }
 
 impl std::fmt::Display for NesCartridgeError {
@@ -23,6 +26,7 @@ impl std::fmt::Display for NesCartridgeError {
         match self {
             Self::NoNESHeader => write!(f, "File doesn't contains NES header"),
             Self::NESHeaderMustBeZero => write!(f, "Some of bytes that must be zero are not, check your nes file"),
+            Self::PRGROMIncorrectNumber => write!(f, "Nes file should contrains at least 1 PRGROM, check your nes file"),
         }
     }
 }
@@ -80,7 +84,7 @@ struct NESHeaderInfo {
 impl NESHeaderInfo {
     fn from_bytes(input_header_data: &[u8]) -> Result<NESHeaderInfo, NesCartridgeError> {
         inst_assert_eq!(input_header_data.len(), 16);
-        debug!("Starting parsing NES header from the file");
+        info!("Starting parsing NES header from the file");
 
         if input_header_data[..4] != *"NES\x1A".as_bytes() {
             error!("The NES header doesn't start with 'NES^Z' part");
@@ -130,9 +134,47 @@ impl NESHeaderInfo {
             prgram_size,
         };
 
-        debug!("NES header parsed successfully");
+        info!("NES header parsed successfully");
+
+        header_info.validate()?;
 
         Ok(header_info)
+    }
+
+    pub fn validate(&self) -> Result<(), NesCartridgeError> {
+        info!("Starting NES header validation");
+
+        if self.number_prgrom_banks == 0 || self.number_prgrom_banks > 2 {
+            error!("Incorrect number of PRG ROM banks (16kb): {}", self.number_prgrom_banks);
+            return Err(NesCartridgeError::PRGROMIncorrectNumber);
+        }
+        debug!("Number of PRGROM: validated successfully");
+
+        info!("NES header validated successfully");
+
+        Ok(())
+    }
+
+    pub fn create_modules(&self, file_data: &[u8]) -> (Cpu, Memory) {
+        let mut cpu = Cpu::default();
+        let mut memory = Memory::default();
+
+        if self.trainer_include {
+            panic!("No trainer support");
+        }
+
+        if self.number_prgrom_banks == 1 {
+            let prg_rom_size = PRGROM_bytes_in_units;
+            let mut prgrom: Vec<u8> = file_data[0..prg_rom_size].to_vec();
+            prgrom.extend_from_slice(&file_data[0..prg_rom_size]);
+            memory.write_prg_rom(&prgrom);
+        } else {
+            let prg_rom_size = PRGROM_bytes_in_units * self.number_prgrom_banks as usize;
+            memory.write_prg_rom(&file_data[0..prg_rom_size]);
+        }
+        cpu.init_pc(&memory);
+
+        (cpu, memory)
     }
 }
 
@@ -141,18 +183,19 @@ fn is_bit_set(input_byte: u8, target_bit: usize) -> bool {
     input_byte & (0b0000_0001 << target_bit) == (0b0000_0001 << target_bit)
 }
 
-pub fn read_nes_file(path_to_nes_file: OsString) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+pub fn read_nes_file(path_to_nes_file: OsString) -> Result<(Cpu, Memory), Box<dyn std::error::Error>> {
+    info!("Start of processing NES file");
     let nes_file_data = fs::read(path_to_nes_file)?;
 
-    let nes_header = if nes_file_data.len() < 16 {
+    let nes_header = if nes_file_data.len() < 17 {
         return Err(Box::new(NesCartridgeError::NoNESHeader));
     } else {
         &nes_file_data[0..16]
     };
+    debug!("NES file read successfully");
 
-    Ok(nes_file_data)
-}
+    let header_info = NESHeaderInfo::from_bytes(nes_header)?;
+    let (cpu, memory) = header_info.create_modules(&nes_file_data[16..]);
 
-pub fn init_from_nes_file(cpu: &mut Cpu, mem: &mut Memory) -> Result<(), Box<dyn std::error::Error>> {
-    Ok(())
+    Ok((cpu, memory))
 }

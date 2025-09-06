@@ -4,9 +4,19 @@ pub mod cpu;
 pub mod memory;
 pub mod cartridges;
 
+const WORKFLOW_MODE: u8 = 2;
+
 fn main() {
     pretty_env_logger::init();
 
+    match WORKFLOW_MODE {
+        1 => temp_unit(),
+        2 => test_rom(),
+        _ => unreachable!(),
+    }
+}
+
+fn temp_unit() {
     let mut cpu_unit = cpu::Cpu::default();
     info!("CPU unit initializated");
     let mut memory_unit = memory::Memory::default();
@@ -31,4 +41,20 @@ fn main() {
 
     let tt = t.elapsed();
     println!("Elapsed {tt:?}");
+}
+
+fn test_rom() {
+    let (
+        mut cpu_unit,
+        mut memory_unit
+    ) = match cartridges::read_nes_file("./roms/nestest.nes".into()) {
+        Ok(modules) => modules,
+        Err(err) => {
+            println!("Error occured, see log");
+            println!("Error: {err}");
+            return
+        }
+    };
+
+    cpu_unit.run_cpu(&mut memory_unit);
 }

@@ -177,6 +177,16 @@ impl Memory {
         inst_assert_eq!(res.len(), APU_IO_FUNC.size);
         res
     }
+
+    pub fn write_prg_rom(&mut self, prg_rom: &[u8]) {
+        inst_assert!(prg_rom.len() <= PRG_ROM.size);
+
+        let mut now_byte_id = PRG_ROM.comp_start;
+        for now_byte in prg_rom {
+            self.data[now_byte_id] = *now_byte;
+            now_byte_id += 1;
+        }
+    }
 }
 
 impl Memory {
