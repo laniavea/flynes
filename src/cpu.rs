@@ -1,5 +1,5 @@
 use better_assertions::{inst_assert_eq, fast_assert};
-use log::{trace, debug, error};
+use log::{trace, debug, info, error};
 
 use crate::memory::{Memory, MemoryType};
 use instructions::{Operation, CPUInstByte};
@@ -60,16 +60,28 @@ impl Cpu {
         debug!("Initialized PC: {exec_pc}")
     }
 
-    pub fn program_counter(&self) -> u16 {
-        self.program_counter
-    }
-
     pub fn init_sp(&mut self, new_stack_pointer: u8) {
         self.stack_pointer = new_stack_pointer
     }
 
     pub fn stack_pointer_mut(&mut self) -> &mut u8 {
         &mut self.stack_pointer
+    }
+    
+    pub fn get_registers_state(&self) -> (u8, u8, u8) {
+        (self.reg_a, self.reg_x, self.reg_y)
+    }
+
+    pub fn get_cpu_status(&self) -> u8 {
+        self.cpu_status
+    }
+
+    pub fn get_stack_pointer(&self) -> u8 {
+        self.stack_pointer
+    }
+
+    pub fn get_program_counter(&self) -> u16 {
+        self.program_counter
     }
 }
 
@@ -147,17 +159,21 @@ impl Cpu {
     pub fn run_cpu(&mut self, memory: &mut Memory) {
         debug!("Running CPU with next PC: {}", self.program_counter);
 
-        let max_number_of_operations = 600_000;
+        let max_number_of_operations = 10000;
         let mut now_oper: usize = 0;
 
         while now_oper < max_number_of_operations {
             if self.execute_cpu_iteration(memory).is_err() {
-                // break
+                error!("Error while CPU execution");
+                break
             }
             now_oper += 1;
         }
+
+        info!("Leaving RUN CPU on {now_oper}");
     }
 
+    /// CHANGE ALSO execute_cpu_iteration_info
     pub fn execute_cpu_iteration(&mut self, memory: &mut Memory) -> Result<u8, &'static str> {
         let now_command = memory.get_8bit_value(self.program_counter);
         let now_inst = self.instruction_set[now_command as usize];
@@ -190,5 +206,45 @@ impl Cpu {
         }
 
         Ok(now_inst.cycles())
+    }
+
+    /// CHANGE ALSO execute_cpu_iteration
+    pub fn execute_cpu_iteration_info(&mut self, memory: &mut Memory) -> Result<(Operation, Vec<u8>), &'static str> {
+        let now_command = memory.get_8bit_value(self.program_counter);
+        let now_inst = self.instruction_set[now_command as usize];
+        let mut fetched_bytes: Vec<u8> = Vec::new();
+        fetched_bytes.push(now_command);
+        trace!("CPU got command hex: {now_command}, instruction: {now_inst}");
+        trace!("Working with {} bytes of data from {}", now_inst.op_name().as_digit(), self.program_counter);
+
+        match now_inst.op_name() {
+            CPUInstByte::One(inst_entry) => {
+                self.program_counter += 1;
+                self.execute_inst_1_byte(inst_entry, memory);
+            },
+            CPUInstByte::Two(inst_entry) => {
+                let mut next_data_byte = memory.get_8bit_value(self.program_counter.wrapping_add(1));
+                fetched_bytes.push(next_data_byte);
+                let target_byte = self.get_by_1byte_address(now_inst.memory_type(), &mut next_data_byte, memory);
+                trace!("Data fetched: {target_byte}");
+                self.program_counter += 2;
+                self.execute_inst_2_byte(inst_entry, target_byte);
+            },
+            CPUInstByte::Three(inst_entry) => {
+                fetched_bytes.push(memory.get_8bit_value(self.program_counter.wrapping_add(1)));
+                fetched_bytes.push(memory.get_8bit_value(self.program_counter.wrapping_add(2)));
+                let next_value = memory.get_16bit_value(self.program_counter.wrapping_add(1));
+                let target_address = self.conv_2byte_address(now_inst.memory_type(), next_value, memory);
+                trace!("Data fetched: {target_address}");
+                self.program_counter += 3;
+                self.execute_inst_3_byte(inst_entry, target_address, memory);
+            },
+            CPUInstByte::NoOp => {
+                error!("Trying to parse NoOp instruction at {} with hex {now_command}", self.program_counter);
+                return Err("NoOp parsed")
+            }
+        }
+
+        Ok((now_inst, fetched_bytes))
     }
 }

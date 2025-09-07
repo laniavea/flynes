@@ -56,5 +56,7 @@ fn test_rom() {
         }
     };
 
+    cpu_unit.set_pc(0xC000);
+
     cpu_unit.run_cpu(&mut memory_unit);
 }

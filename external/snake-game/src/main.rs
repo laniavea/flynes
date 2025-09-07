@@ -94,7 +94,7 @@ fn main() {
             break
         }
 
-        if cpu_unit.program_counter() as usize == ROM_START + snake_game_hex.len() {
+        if cpu_unit.get_program_counter() as usize == ROM_START + snake_game_hex.len() {
             println!("Game end");
             break;
         }

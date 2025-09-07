@@ -22,3 +22,6 @@ Cargo.lock
 
 # Test roms for workflows
 roms/
+
+# NESTEST logs
+external/nestest-execution-log/*.log
