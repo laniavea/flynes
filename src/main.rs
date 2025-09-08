@@ -3,6 +3,7 @@ use log::info;
 pub mod cpu;
 pub mod memory;
 pub mod cartridges;
+pub mod common;
 
 const WORKFLOW_MODE: u8 = 2;
 

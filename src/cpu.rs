@@ -40,7 +40,7 @@ impl Default for Cpu {
             reg_a: 0,
             reg_x: 0,
             reg_y: 0,
-            cpu_status: 0b0000_0000,
+            cpu_status: 0b0010_0000,
             stack_pointer: 0xFF,
             program_counter: 0xFFFF,
             instruction_set: &INSTRUCTION_SET,

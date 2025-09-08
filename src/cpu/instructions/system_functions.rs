@@ -5,6 +5,8 @@ use crate::cpu::{BREAK_FLAG, UNUSED_FLAG};
 use crate::cpu::instructions::shared_ops::{set_flag, is_flag_set};
 use crate::memory::Memory;
 
+const UNUSED_FLAG_BIT: u8 = 0b0000_0001 << UNUSED_FLAG;
+
 impl Cpu {
     /// Creates forced interrupt
     pub fn op_brk(&mut self, mem: &mut Memory) {
@@ -21,7 +23,7 @@ impl Cpu {
 
     /// Return from interrupt, pulls cpu status and pc from stack
     pub fn op_rti(&mut self, mem: &Memory) {
-        self.cpu_status = mem.stack_pull_8bit(&mut self.stack_pointer);
+        self.cpu_status = mem.stack_pull_8bit(&mut self.stack_pointer) | UNUSED_FLAG_BIT;
         self.program_counter = mem.stack_pull_16bit(&mut self.stack_pointer);
     }
 }
