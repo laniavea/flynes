@@ -23,15 +23,14 @@ def main():
 
     row_counter = 1
     fails = 0
-
-    tolerance = 1
+    tolerance = 10
 
     for (idead_row, check_row) in zip(ideal_columns, check_columns):
         for now_column in range(len(columns_to_check)):
             if idead_row[now_column] != check_row[now_column]:
                 fails += 1
                 print("=" * 20)
-                print("ROW {row_counter} FAIL")
+                print(f"ROW {row_counter} FAIL")
                 print(f"VALUE MISMATCH: expected - '{idead_row[now_column]}', got - '{check_row[now_column]}'")
                 print(f"\nIdeal log str: {idead_row[-1]}")
                 print(f"Got log str: {check_row[-1]}")
@@ -45,7 +44,10 @@ def main():
     if fails:
         print(f"LOG VALIDATION FAILED for {fails} rows")
     else:
-        print(f"LOG VALIDATED. SCANNED {row_counter} rows")
+        if len(check_columns) < len(ideal_columns):
+            print(f"LOG PARTIALLY VALIDATED. SCANNED {row_counter} rows from {len(ideal_columns)}")
+        else:
+            print(f"LOG VALIDATED. SCANNED {row_counter} rows")
 
 
 def get_by_version(version):
@@ -71,7 +73,6 @@ def take_columns_ideal(cols_to_take, ideal_log):
             parsed_str.append(now_str[now_col[0]:now_col[0]+now_col[1]].strip())
         parsed_str.append(now_str)
         parsed_log.append(parsed_str)
-        break
 
     return parsed_log
 

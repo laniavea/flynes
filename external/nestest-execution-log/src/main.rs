@@ -30,6 +30,7 @@ fn main() {
     match LOG_VERSION {
         1 => {
             for _not_iter in 0..10000 {
+                let old_cpu = cpu_unit.clone();
                 let (_op, fected_bytes) = match cpu_unit.execute_cpu_iteration_info(&mut memory_unit) {
                     Ok(info) => info,
                     Err(e) => {
@@ -37,8 +38,8 @@ fn main() {
                         break
                     },
                 };
-                let st = generate_log_string_v1(&cpu_unit, fected_bytes);
-                all_file_data += &format!("{st}\n")
+                let st = generate_log_string_v1(&old_cpu, fected_bytes);
+                all_file_data += &format!("{st}\n");
             }
 
             file_name = Some(String::from("nestest_v1.log"))

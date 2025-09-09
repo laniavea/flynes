@@ -18,7 +18,7 @@ const NEGATIVE_FLAG: usize = 7;
 static INSTRUCTION_SET: [Operation; 256] = instructions::init_all_operations().0;
 static INSTRUCTION_COUNT: usize = instructions::init_all_operations().1;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Cpu {
     reg_a: u8,
     reg_x: u8,
@@ -40,8 +40,8 @@ impl Default for Cpu {
             reg_a: 0,
             reg_x: 0,
             reg_y: 0,
-            cpu_status: 0b0010_0000,
-            stack_pointer: 0xFF,
+            cpu_status: 0b0010_0100,
+            stack_pointer: 0xFD,
             program_counter: 0xFFFF,
             instruction_set: &INSTRUCTION_SET,
         }
