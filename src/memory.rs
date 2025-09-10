@@ -200,7 +200,7 @@ impl Memory {
         // APU REGS AND HIGHER
         if requested_address > PPU_REGS_MIRRORS.end {
             inst_assert!(requested_address >= APU_REGS.start);
-            self.data[APU_REGS.comp_start + (requested_address - (APU_REGS.start))]
+            self.data[APU_REGS.comp_start + (requested_address - APU_REGS.start)]
 
         // PPU REGS AND IT'S MIRRORS
         } else if requested_address > RAM_MIRRORS.end {
@@ -229,7 +229,7 @@ impl Memory {
         // APU REGS AND HIGHER
         if requested_address > PPU_REGS_MIRRORS.end {
             inst_assert!(requested_address >= APU_REGS.start);
-            &mut self.data[APU_REGS.comp_start + (requested_address - (APU_REGS.start))]
+            &mut self.data[APU_REGS.comp_start + (requested_address - APU_REGS.start)]
 
         // PPU REGS AND IT'S MIRRORS
         } else if requested_address > RAM_MIRRORS.end {
@@ -296,6 +296,22 @@ impl Memory {
         };
 
         ((next_byte as u16) << 8) + requested_byte as u16
+    }
+
+    pub fn get_16bit_value_zp_wrap(&self, requested_address: u16) -> u16 {
+        if requested_address == 0x00FF {
+            return ((self.data[0x0000] as u16) << 8) + self.data[0x00FF] as u16
+        }
+
+        self.get_16bit_value(requested_address)
+    }
+
+    pub fn get_16bit_value_jmp_bug(&self, requested_address: u16) -> u16 {
+        if requested_address & 0x00FF == 0x00FF {
+            return ((self.get_8bit_value(requested_address & 0xFF00) as u16) << 8) + self.get_8bit_value(requested_address) as u16
+        }
+
+        self.get_16bit_value(requested_address)
     }
 }
 

@@ -30,7 +30,7 @@ fn main() {
     match LOG_VERSION {
         1 => {
             for _not_iter in 0..10000 {
-                let old_cpu = cpu_unit.clone();
+                let old_cpu = cpu_unit;
                 let (_op, fected_bytes) = match cpu_unit.execute_cpu_iteration_info(&mut memory_unit) {
                     Ok(info) => info,
                     Err(e) => {
@@ -54,7 +54,7 @@ fn main() {
 
 fn generate_log_string_v1(cpu: &Cpu, fetched_bytes: Vec<u8>) -> String {
     let pc = cpu.get_program_counter();
-    let pc_str = &format!("{pc:#x}").to_uppercase()[2..];
+    let pc_str = number_to_hex(pc, false);
 
     let mut bytes_str: String = String::new();
     for i in 0..3 {

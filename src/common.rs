@@ -1,8 +1,9 @@
-pub fn number_to_hex(value: u8, with_hex_iden: bool) -> String {
-    let mut res = format!("{value:#x}").to_uppercase()[2..].to_string();
+pub fn number_to_hex<T: std::fmt::UpperHex + Sized> (value: T, with_hex_iden: bool) -> String {
+    let mut res: String = format!("{value:X}");
 
-    if res.len() == 1 {
-        res = format!("0{res}").to_string()
+    if res.len() != size_of_val(&value) * 2 {
+        let null_prefix: String = "0".repeat((size_of_val(&value) * 2) - res.len());
+        res = format!("{null_prefix}{res}")
     }
 
     if with_hex_iden {

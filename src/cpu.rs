@@ -2,6 +2,7 @@ use better_assertions::{inst_assert_eq, fast_assert};
 use log::{trace, debug, info, error};
 
 use crate::memory::{Memory, MemoryType};
+use crate::common;
 use instructions::{Operation, CPUInstByte};
 
 mod instructions;
@@ -52,12 +53,12 @@ impl Cpu {
     pub fn init_pc(&mut self, memory: &Memory) {
         let exec_pc = memory.get_16bit_value(0xFFFC);
         self.program_counter = exec_pc;
-        debug!("Initialized PC: {exec_pc}")
+        debug!("Initialized PC: {}", common::number_to_hex(exec_pc, true))
     }
 
     pub fn set_pc(&mut self, exec_pc: u16) {
         self.program_counter = exec_pc;
-        debug!("Initialized PC: {exec_pc}")
+        debug!("Initialized PC: {}", common::number_to_hex(exec_pc, true))
     }
 
     pub fn init_sp(&mut self, new_stack_pointer: u8) {
@@ -117,12 +118,12 @@ impl Cpu {
             },
             MemoryType::IndirectX => {
                 let value = value.wrapping_add(self.reg_x);
-                let new_address = memory.get_16bit_value(value as u16);
+                let new_address = memory.get_16bit_value_zp_wrap(value as u16);
                 memory.get_mut_8bit_value(new_address)
             },
             MemoryType::IndirectY => {
-                let value = value.wrapping_add(self.reg_y);
-                let new_address = memory.get_16bit_value(value as u16);
+                let value_data = memory.get_16bit_value_zp_wrap(*value as u16);
+                let new_address = value_data.wrapping_add(self.reg_y as u16);
                 memory.get_mut_8bit_value(new_address)
             },
             _ => unreachable!(),
@@ -142,7 +143,7 @@ impl Cpu {
                 value
             },
             MemoryType::Indirect => {
-                memory.get_16bit_value(value)
+                memory.get_16bit_value_jmp_bug(value)
             },
             MemoryType::AbsoluteX => {
                 value.wrapping_add(self.reg_x as u16)
@@ -157,7 +158,7 @@ impl Cpu {
 
 impl Cpu {
     pub fn run_cpu(&mut self, memory: &mut Memory) {
-        debug!("Running CPU with next PC: {}", self.program_counter);
+        debug!("Running CPU with next PC: {}", common::number_to_hex(self.program_counter, true));
 
         let max_number_of_operations = 10000;
         let mut now_oper: usize = 0;
@@ -177,8 +178,12 @@ impl Cpu {
     pub fn execute_cpu_iteration(&mut self, memory: &mut Memory) -> Result<u8, &'static str> {
         let now_command = memory.get_8bit_value(self.program_counter);
         let now_inst = self.instruction_set[now_command as usize];
-        trace!("CPU got command hex: {now_command}, instruction: {now_inst}");
-        trace!("Working with {} bytes of data from {}", now_inst.op_name().as_digit(), self.program_counter);
+        trace!("CPU got command: {}, instruction: {now_inst}", common::number_to_hex(now_command, true));
+        trace!(
+            "Working with {} bytes of data from {}",
+            now_inst.op_name().as_digit(),
+            common::number_to_hex(self.program_counter, true)
+        );
 
         match now_inst.op_name() {
             CPUInstByte::One(inst_entry) => {
@@ -188,19 +193,23 @@ impl Cpu {
             CPUInstByte::Two(inst_entry) => {
                 let mut next_data_byte = memory.get_8bit_value(self.program_counter.wrapping_add(1));
                 let target_byte = self.get_by_1byte_address(now_inst.memory_type(), &mut next_data_byte, memory);
-                trace!("Data fetched: {target_byte}");
+                trace!("Current data value: {}", common::number_to_hex(*target_byte, true));
                 self.program_counter += 2;
                 self.execute_inst_2_byte(inst_entry, target_byte);
             },
             CPUInstByte::Three(inst_entry) => {
                 let next_value = memory.get_16bit_value(self.program_counter.wrapping_add(1));
                 let target_address = self.conv_2byte_address(now_inst.memory_type(), next_value, memory);
-                trace!("Data fetched: {target_address}");
+                trace!("Converted address: {}", common::number_to_hex(target_address, true));
                 self.program_counter += 3;
                 self.execute_inst_3_byte(inst_entry, target_address, memory);
             },
             CPUInstByte::NoOp => {
-                error!("Trying to parse NoOp instruction at {} with hex {now_command}", self.program_counter);
+                error!(
+                    "Trying to parse NoOp instruction at {} with hex {}",
+                    common::number_to_hex(self.program_counter, true),
+                    common::number_to_hex(now_command, true)
+                );
                 return Err("NoOp parsed")
             }
         }
@@ -214,8 +223,12 @@ impl Cpu {
         let now_inst = self.instruction_set[now_command as usize];
         let mut fetched_bytes: Vec<u8> = Vec::new();
         fetched_bytes.push(now_command);
-        trace!("CPU got command hex: {now_command}, instruction: {now_inst}");
-        trace!("Working with {} bytes of data from {}", now_inst.op_name().as_digit(), self.program_counter);
+        trace!("CPU got command: {}, instruction: {now_inst}", common::number_to_hex(now_command, true));
+        trace!(
+            "Working with {} bytes of data from {}",
+            now_inst.op_name().as_digit(),
+            common::number_to_hex(self.program_counter, true)
+        );
 
         match now_inst.op_name() {
             CPUInstByte::One(inst_entry) => {
@@ -226,7 +239,7 @@ impl Cpu {
                 let mut next_data_byte = memory.get_8bit_value(self.program_counter.wrapping_add(1));
                 fetched_bytes.push(next_data_byte);
                 let target_byte = self.get_by_1byte_address(now_inst.memory_type(), &mut next_data_byte, memory);
-                trace!("Data fetched: {target_byte}");
+                trace!("Current data value: {}", common::number_to_hex(*target_byte, true));
                 self.program_counter += 2;
                 self.execute_inst_2_byte(inst_entry, target_byte);
             },
@@ -235,12 +248,16 @@ impl Cpu {
                 fetched_bytes.push(memory.get_8bit_value(self.program_counter.wrapping_add(2)));
                 let next_value = memory.get_16bit_value(self.program_counter.wrapping_add(1));
                 let target_address = self.conv_2byte_address(now_inst.memory_type(), next_value, memory);
-                trace!("Data fetched: {target_address}");
+                trace!("Converted address: {}", common::number_to_hex(target_address, true));
                 self.program_counter += 3;
                 self.execute_inst_3_byte(inst_entry, target_address, memory);
             },
             CPUInstByte::NoOp => {
-                error!("Trying to parse NoOp instruction at {} with hex {now_command}", self.program_counter);
+                error!(
+                    "Trying to parse NoOp instruction at {} with hex {}",
+                    common::number_to_hex(self.program_counter, true),
+                    common::number_to_hex(now_command, true)
+                );
                 return Err("NoOp parsed")
             }
         }
