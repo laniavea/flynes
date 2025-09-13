@@ -12,6 +12,7 @@ mod jumps_calls;
 mod branches;
 mod status_flag_changes;
 mod system_functions;
+mod unofficial_combined;
 
 mod shared_ops;
 

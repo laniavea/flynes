@@ -5,7 +5,7 @@ use crate::memory::{Memory, MemoryType};
 use crate::common;
 use instructions::{Operation, CPUInstByte};
 
-mod instructions;
+pub mod instructions;
 
 const CARRY_FLAG: usize = 0;
 const ZERO_FLAG: usize = 1;

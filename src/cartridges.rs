@@ -7,7 +7,7 @@ use log::{error, info, debug};
 use crate::cpu::Cpu;
 use crate::memory::Memory;
 
-const PRGROM_bytes_in_units: usize = 16384;
+const PRGROM_BYTES_IN_UNITS: usize = 16384;
 
 const CB1_VRAM_LAYOUT: usize = 3;
 const CB1_TRAINER: usize = 2;
@@ -66,19 +66,19 @@ struct NESHeaderInfo {
     /// Number of 16kB ROB banks (PRG ROM)
     number_prgrom_banks: u8,
     /// Number of 8kB ROB banks (CHR ROM)
-    number_chrrom_banks: u8,
+    _number_chrrom_banks: u8,
     /// Rom mapper type
-    mapper_type: u8,
+    _mapper_type: u8,
     /// Four-screen VRAM layout
-    four_screen_vram: bool,
+    _four_screen_vram: bool,
     /// Trainer include status
     trainer_include: bool,
     /// Battery packed RAM to store saves
-    battery_packed_ram: bool,
+    _battery_packed_ram: bool,
     /// Mirroring status
-    mirroring_type: MirroringType,
+    _mirroring_type: MirroringType,
     /// Size of PRG RAM in 8kB units
-    prgram_size: u8,
+    _prgram_size: u8,
 }
 
 impl NESHeaderInfo {
@@ -125,13 +125,13 @@ impl NESHeaderInfo {
 
         let header_info = NESHeaderInfo {
             number_prgrom_banks,
-            number_chrrom_banks,
-            mapper_type,
-            four_screen_vram,
+            _number_chrrom_banks: number_chrrom_banks,
+            _mapper_type: mapper_type,
+            _four_screen_vram: four_screen_vram,
             trainer_include,
-            battery_packed_ram,
-            mirroring_type,
-            prgram_size,
+            _battery_packed_ram: battery_packed_ram,
+            _mirroring_type: mirroring_type,
+            _prgram_size: prgram_size,
         };
 
         info!("NES header parsed successfully");
@@ -164,12 +164,12 @@ impl NESHeaderInfo {
         }
 
         if self.number_prgrom_banks == 1 {
-            let prg_rom_size = PRGROM_bytes_in_units;
+            let prg_rom_size = PRGROM_BYTES_IN_UNITS;
             let mut prgrom: Vec<u8> = file_data[0..prg_rom_size].to_vec();
             prgrom.extend_from_slice(&file_data[0..prg_rom_size]);
             memory.write_prg_rom(&prgrom);
         } else {
-            let prg_rom_size = PRGROM_bytes_in_units * self.number_prgrom_banks as usize;
+            let prg_rom_size = PRGROM_BYTES_IN_UNITS * self.number_prgrom_banks as usize;
             memory.write_prg_rom(&file_data[0..prg_rom_size]);
         }
         cpu.init_pc(&memory);
