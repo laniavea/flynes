@@ -48,7 +48,7 @@ impl Cpu {
         self.reg_x = self.reg_a;
     }
 
-    /// SAX operation; Stores bitwise AND for reg_a and reg_x
+    /// SAX / AAX / AXS operation; Stores bitwise AND for reg_a and reg_x
     pub fn op_sax(&mut self, data_ref: &mut u8) {
         *data_ref = self.reg_a & self.reg_x;
     }

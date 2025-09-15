@@ -13,6 +13,7 @@ mod branches;
 mod status_flag_changes;
 mod system_functions;
 mod unofficial_combined;
+mod unofficial_rmw;
 
 mod shared_ops;
 
@@ -108,6 +109,12 @@ pub enum Inst2Byte {
     BPLop,
     BVCop,
     BVSop,
+    ALRop,
+    ANCop,
+    ARRop,
+    AXSop,
+    LAXop,
+    SAXop,
 }
 
 #[repr(u8)]
@@ -136,6 +143,8 @@ pub enum Inst3Byte {
     RORop,
     JMPop,
     JSRop,
+    LAXop,
+    SAXop,
 }
 
 impl Cpu {
@@ -204,6 +213,12 @@ impl Cpu {
             Inst2Byte::BPLop => self.op_bpl(data_ref),
             Inst2Byte::BVCop => self.op_bvc(data_ref),
             Inst2Byte::BVSop => self.op_bvs(data_ref),
+            Inst2Byte::ALRop => self.op_alr(data_ref),
+            Inst2Byte::ANCop => self.op_anc(data_ref),
+            Inst2Byte::ARRop => self.op_arr(data_ref),
+            Inst2Byte::AXSop => self.op_axs(data_ref),
+            Inst2Byte::LAXop => self.op_lax(data_ref),
+            Inst2Byte::SAXop => self.op_sax(data_ref),
         };
     }
 
@@ -232,6 +247,8 @@ impl Cpu {
             Inst3Byte::RORop => self.op_ror(memory.get_mut_8bit_value(target_memory)),
             Inst3Byte::JMPop => self.op_jmp(target_memory),
             Inst3Byte::JSRop => self.op_jsr(target_memory, memory),
+            Inst3Byte::LAXop => self.op_lax(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::SAXop => self.op_sax(memory.get_mut_8bit_value(target_memory)),
         }
     }
 }
@@ -603,6 +620,36 @@ pub const fn init_all_operations() -> ([Operation; 256], usize) {
 
     oper_counter += 3;
 
+    // UNOFFICIAL
+    
+    // Combined operations
+    // ALR(ASR), ANC(AAC), ARR, AXS(SBX,SAX), LAX, SAX(AAX, AXS) operations
+    
+    // ALR, ANC, ARR, AXS
+    all_operations[0x4B] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::ALRop));
+    all_operations[0x0B] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::ANCop));
+    all_operations[0x6B] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::ARRop));
+    all_operations[0xCB] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::AXSop));
+
+    oper_counter += 4;
+
+    // LAX
+    all_operations[0xA7] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::LAXop));
+    all_operations[0xB7] = Operation::new(4, MemoryType::ZeroPageY, CPUInstByte::Two(Inst2Byte::LAXop));
+    all_operations[0xAF] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::LAXop));
+    all_operations[0xBF] = Operation::new(4, MemoryType::AbsoluteY, CPUInstByte::Three(Inst3Byte::LAXop));
+    all_operations[0xA3] = Operation::new(6, MemoryType::IndirectX, CPUInstByte::Two(Inst2Byte::LAXop));
+    all_operations[0xB3] = Operation::new(5, MemoryType::IndirectY, CPUInstByte::Two(Inst2Byte::LAXop));
+
+    oper_counter += 6;
+
+    // SAX
+    all_operations[0x87] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::SAXop));
+    all_operations[0x97] = Operation::new(4, MemoryType::ZeroPageY, CPUInstByte::Two(Inst2Byte::SAXop));
+    all_operations[0x83] = Operation::new(6, MemoryType::IndirectX, CPUInstByte::Two(Inst2Byte::SAXop));
+    all_operations[0x8F] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::SAXop));
+
+    oper_counter += 4;
     (all_operations, oper_counter)
 }
 
