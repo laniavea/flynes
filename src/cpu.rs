@@ -34,8 +34,16 @@ impl Default for Cpu {
     fn default() -> Cpu {
         inst_assert_eq!(
             INSTRUCTION_COUNT,
-            INSTRUCTION_SET.iter().filter(|i| !matches!(i.op_name(), CPUInstByte::NoOp)).count()
+            INSTRUCTION_SET.iter().filter(|i| !matches!(i.cycles(), 0)).count()
         );
+
+        println!("Number of operations: {INSTRUCTION_COUNT}");
+
+        use crate::common::number_to_hex;
+        let now_row: usize = 0x00;
+        for (now_id, i) in INSTRUCTION_SET.iter().skip(now_row).take(0x1F).enumerate() {
+            println!("Instruction at {}: {}", number_to_hex(now_id as u8, true), i)
+        }
 
         Cpu {
             reg_a: 0,

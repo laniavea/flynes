@@ -14,6 +14,7 @@ mod status_flag_changes;
 mod system_functions;
 mod unofficial_combined;
 mod unofficial_rmw;
+mod unofficial_other;
 
 mod shared_ops;
 
@@ -121,6 +122,7 @@ pub enum Inst2Byte {
     RRAop,
     SLOop,
     SREop,
+    NOPop,
 }
 
 #[repr(u8)]
@@ -157,6 +159,9 @@ pub enum Inst3Byte {
     RRAop,
     SLOop,
     SREop,
+    SHXop,
+    SHYop,
+    NOPop,
 }
 
 impl Cpu {
@@ -237,6 +242,7 @@ impl Cpu {
             Inst2Byte::RRAop => self.op_rra(data_ref),
             Inst2Byte::SLOop => self.op_slo(data_ref),
             Inst2Byte::SREop => self.op_sre(data_ref),
+            Inst2Byte::NOPop => self.op_nop(),
         };
     }
 
@@ -273,6 +279,9 @@ impl Cpu {
             Inst3Byte::RRAop => self.op_rra(memory.get_mut_8bit_value(target_memory)),
             Inst3Byte::SLOop => self.op_slo(memory.get_mut_8bit_value(target_memory)),
             Inst3Byte::SREop => self.op_sre(memory.get_mut_8bit_value(target_memory)),
+            Inst3Byte::SHXop => self.op_shx(target_memory),
+            Inst3Byte::SHYop => self.op_shy(target_memory),
+            Inst3Byte::NOPop => self.op_nop(),
         }
     }
 }
@@ -678,7 +687,7 @@ pub const fn init_all_operations() -> ([Operation; 256], usize) {
     // RMW instructions
     // DCP(DCM), ISC(ISB,INS), RLA, RRA, SLO(ASO), SRE(LSE) operations
 
-    // DCP(DCP) operations
+    // DCP(DCM) operations
     all_operations[0xC7] = Operation::new(5, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::DCPop));
     all_operations[0xD7] = Operation::new(6, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::DCPop));
     all_operations[0xCF] = Operation::new(6, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::DCPop));
@@ -743,6 +752,60 @@ pub const fn init_all_operations() -> ([Operation; 256], usize) {
     all_operations[0x53] = Operation::new(8, MemoryType::IndirectY, CPUInstByte::Two(Inst2Byte::SREop));
 
     oper_counter += 7;
+
+    // Dublicates SBC operation
+    // SBC operation
+    all_operations[0xEB] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::SBCop));
+    oper_counter += 1;
+
+    // Incorrect memory modes SHX(SXA, XAS), SHY(SYA, SAY) operations
+    // SHX(SXA, XAS) and SHY(SYA, SAY) operations
+    all_operations[0x9E] = Operation::new(5, MemoryType::AbsoluteY, CPUInstByte::Three(Inst3Byte::SHXop));
+    all_operations[0x9C] = Operation::new(5, MemoryType::AbsoluteX, CPUInstByte::Three(Inst3Byte::SHYop));
+    oper_counter += 2;
+
+    // NOPs opeartions
+    // NOP Implied operatoins
+    all_operations[0x1A] = all_operations[0xEA];
+    all_operations[0x3A] = all_operations[0xEA];
+    all_operations[0x5A] = all_operations[0xEA];
+    all_operations[0x7A] = all_operations[0xEA];
+    all_operations[0xDA] = all_operations[0xEA];
+    all_operations[0xFA] = all_operations[0xEA];
+    oper_counter += 6;
+
+    // NOP Immediate opeartions
+    all_operations[0x80] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::NOPop));
+    all_operations[0x82] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::NOPop));
+    all_operations[0x89] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::NOPop));
+    all_operations[0xC2] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::NOPop));
+    all_operations[0xE2] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::NOPop));
+    oper_counter += 5;
+
+    // NOP Absolute
+    all_operations[0x0C] = Operation::new(4, MemoryType::Absolute, CPUInstByte::Three(Inst3Byte::NOPop));
+    all_operations[0x1C] = Operation::new(4, MemoryType::AbsoluteX, CPUInstByte::Three(Inst3Byte::NOPop));
+    all_operations[0x3C] = all_operations[0x1C];
+    all_operations[0x5C] = all_operations[0x1C];
+    all_operations[0x7C] = all_operations[0x1C];
+    all_operations[0xDC] = all_operations[0x1C];
+    all_operations[0xFC] = all_operations[0x1C];
+    oper_counter += 7;
+
+    // NOP ZeroPage
+    all_operations[0x04] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::NOPop));
+    all_operations[0x44] = all_operations[0x04];
+    all_operations[0x64] = all_operations[0x04];
+    oper_counter += 3;
+
+    // NOP ZeroPageX
+    all_operations[0x14] = Operation::new(4, MemoryType::ZeroPageX, CPUInstByte::Two(Inst2Byte::NOPop));
+    all_operations[0x34] = all_operations[0x14];
+    all_operations[0x54] = all_operations[0x14];
+    all_operations[0x74] = all_operations[0x14];
+    all_operations[0xD4] = all_operations[0x14];
+    all_operations[0xF4] = all_operations[0x14];
+    oper_counter += 6;
 
     (all_operations, oper_counter)
 }
