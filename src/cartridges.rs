@@ -26,7 +26,7 @@ impl std::fmt::Display for NesCartridgeError {
         match self {
             Self::NoNESHeader => write!(f, "File doesn't contains NES header"),
             Self::NESHeaderMustBeZero => write!(f, "Some of bytes that must be zero are not, check your nes file"),
-            Self::PRGROMIncorrectNumber => write!(f, "Nes file should contrains at least 1 PRGROM, check your nes file"),
+            Self::PRGROMIncorrectNumber => write!(f, "NES file should contains at least 1 PRGROM, check your file"),
         }
     }
 }

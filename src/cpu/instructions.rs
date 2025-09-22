@@ -76,6 +76,7 @@ pub enum Inst1Byte {
     BRKop,
     NOPop,
     RTIop,
+    STPop,
 }
 
 #[repr(u8)]
@@ -196,6 +197,7 @@ impl Cpu {
             Inst1Byte::BRKop => self.op_brk(memory),
             Inst1Byte::NOPop => self.op_nop(),
             Inst1Byte::RTIop => self.op_rti(memory),
+            Inst1Byte::STPop => self.op_stp(),
         }
     }
 
@@ -806,6 +808,22 @@ pub const fn init_all_operations() -> ([Operation; 256], usize) {
     all_operations[0xD4] = all_operations[0x14];
     all_operations[0xF4] = all_operations[0x14];
     oper_counter += 6;
+
+    // STP operations
+    all_operations[0x02] = Operation::new(0, MemoryType::Implied, CPUInstByte::One(Inst1Byte::STPop));
+    all_operations[0x12] = all_operations[0x02];
+    all_operations[0x22] = all_operations[0x02];
+    all_operations[0x32] = all_operations[0x02];
+    all_operations[0x42] = all_operations[0x02];
+    all_operations[0x52] = all_operations[0x02];
+    all_operations[0x62] = all_operations[0x02];
+    all_operations[0x72] = all_operations[0x02];
+    all_operations[0x92] = all_operations[0x02];
+    all_operations[0xB2] = all_operations[0x02];
+    all_operations[0xD2] = all_operations[0x02];
+    all_operations[0xF2] = all_operations[0x02];
+
+    oper_counter += 12;
 
     (all_operations, oper_counter)
 }

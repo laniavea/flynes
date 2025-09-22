@@ -20,6 +20,12 @@ static INSTRUCTION_SET: [Operation; 256] = instructions::init_all_operations().0
 static INSTRUCTION_COUNT: usize = instructions::init_all_operations().1;
 
 #[derive(Debug, Clone, Copy)]
+pub enum CpuState {
+    Running,
+    Stopped,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Cpu {
     reg_a: u8,
     reg_x: u8,
@@ -28,21 +34,22 @@ pub struct Cpu {
     stack_pointer: u8,
     program_counter: u16,
     instruction_set: &'static [Operation; 256],
+    state: CpuState,
 }
 
 impl Default for Cpu {
     fn default() -> Cpu {
         inst_assert_eq!(
             INSTRUCTION_COUNT,
-            INSTRUCTION_SET.iter().filter(|i| !matches!(i.cycles(), 0)).count()
+            INSTRUCTION_SET.iter().filter(|i| !((i.cycles() == 0) && matches!(i.op_name(), CPUInstByte::NoOp))).count()
         );
 
         println!("Number of operations: {INSTRUCTION_COUNT}");
 
         use crate::common::number_to_hex;
         let now_row: usize = 0x00;
-        for (now_id, i) in INSTRUCTION_SET.iter().skip(now_row).take(0x1F).enumerate() {
-            println!("Instruction at {}: {}", number_to_hex(now_id as u8, true), i)
+        for (now_id, i) in INSTRUCTION_SET.iter().skip(now_row).take(0x20).enumerate() {
+            println!("Instruction at {}: {}, cycles: {}", number_to_hex(now_id as u8, true), i, i.cycles())
         }
 
         Cpu {
@@ -53,6 +60,7 @@ impl Default for Cpu {
             stack_pointer: 0xFD,
             program_counter: 0xFFFF,
             instruction_set: &INSTRUCTION_SET,
+            state: CpuState::Running,
         }
     }
 }
@@ -197,6 +205,10 @@ impl Cpu {
             CPUInstByte::One(inst_entry) => {
                 self.program_counter += 1;
                 self.execute_inst_1_byte(inst_entry, memory);
+
+                if matches!(self.state, CpuState::Stopped) {
+                    return Err("CPU was stopped by STP instruction")
+                }
             },
             CPUInstByte::Two(inst_entry) => {
                 let mut next_data_byte = memory.get_8bit_value(self.program_counter.wrapping_add(1));
