@@ -44,14 +44,6 @@ impl Default for Cpu {
             INSTRUCTION_SET.iter().filter(|i| !((i.cycles() == 0) && matches!(i.op_name(), CPUInstByte::NoOp))).count()
         );
 
-        println!("Number of operations: {INSTRUCTION_COUNT}");
-
-        use crate::common::number_to_hex;
-        let now_row: usize = 0x00;
-        for (now_id, i) in INSTRUCTION_SET.iter().skip(now_row).take(0x20).enumerate() {
-            println!("Instruction at {}: {}, cycles: {}", number_to_hex(now_id as u8, true), i, i.cycles())
-        }
-
         Cpu {
             reg_a: 0,
             reg_x: 0,

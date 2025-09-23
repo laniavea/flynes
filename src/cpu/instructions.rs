@@ -124,6 +124,9 @@ pub enum Inst2Byte {
     SLOop,
     SREop,
     NOPop,
+    XAAop,
+    AHXop,
+    LAX2op,
 }
 
 #[repr(u8)]
@@ -163,6 +166,9 @@ pub enum Inst3Byte {
     SHXop,
     SHYop,
     NOPop,
+    AHXop,
+    TASop,
+    LASop,
 }
 
 impl Cpu {
@@ -245,45 +251,51 @@ impl Cpu {
             Inst2Byte::SLOop => self.op_slo(data_ref),
             Inst2Byte::SREop => self.op_sre(data_ref),
             Inst2Byte::NOPop => self.op_nop(),
+            Inst2Byte::XAAop => self.op_xaa(data_ref),
+            Inst2Byte::AHXop => self.op_ahx(data_ref),
+            Inst2Byte::LAX2op => self.op_lax_other_ver(data_ref),
         };
     }
 
-    pub fn execute_inst_3_byte(&mut self, now_inst: Inst3Byte, target_memory: u16, memory: &mut Memory) {
+    pub fn execute_inst_3_byte(&mut self, now_inst: Inst3Byte, req_address: u16, memory: &mut Memory) {
         match now_inst {
-            Inst3Byte::LDAop => self.op_lda(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::LDXop => self.op_ldx(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::LDYop => self.op_ldy(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::STAop => self.op_sta(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::STXop => self.op_stx(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::STYop => self.op_sty(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::ANDop => self.op_and(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::EORop => self.op_eor(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::ORAop => self.op_ora(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::BITop => self.op_bit(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::ADCop => self.op_adc(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::SBCop => self.op_sbc(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::CMPop => self.op_cmp(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::CPXop => self.op_cpx(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::CPYop => self.op_cpy(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::INCop => self.op_inc(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::DECop => self.op_dec(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::ASLop => self.op_asl(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::LSRop => self.op_lsr(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::ROLop => self.op_rol(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::RORop => self.op_ror(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::JMPop => self.op_jmp(target_memory),
-            Inst3Byte::JSRop => self.op_jsr(target_memory, memory),
-            Inst3Byte::LAXop => self.op_lax(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::SAXop => self.op_sax(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::DCPop => self.op_dcp(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::ISCop => self.op_isc(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::RLAop => self.op_rla(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::RRAop => self.op_rra(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::SLOop => self.op_slo(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::SREop => self.op_sre(memory.get_mut_8bit_value(target_memory)),
-            Inst3Byte::SHXop => self.op_shx(target_memory),
-            Inst3Byte::SHYop => self.op_shy(target_memory),
+            Inst3Byte::LDAop => self.op_lda(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::LDXop => self.op_ldx(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::LDYop => self.op_ldy(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::STAop => self.op_sta(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::STXop => self.op_stx(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::STYop => self.op_sty(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::ANDop => self.op_and(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::EORop => self.op_eor(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::ORAop => self.op_ora(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::BITop => self.op_bit(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::ADCop => self.op_adc(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::SBCop => self.op_sbc(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::CMPop => self.op_cmp(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::CPXop => self.op_cpx(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::CPYop => self.op_cpy(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::INCop => self.op_inc(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::DECop => self.op_dec(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::ASLop => self.op_asl(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::LSRop => self.op_lsr(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::ROLop => self.op_rol(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::RORop => self.op_ror(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::JMPop => self.op_jmp(req_address),
+            Inst3Byte::JSRop => self.op_jsr(req_address, memory),
+            Inst3Byte::LAXop => self.op_lax(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::SAXop => self.op_sax(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::DCPop => self.op_dcp(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::ISCop => self.op_isc(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::RLAop => self.op_rla(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::RRAop => self.op_rra(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::SLOop => self.op_slo(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::SREop => self.op_sre(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::SHXop => self.op_shx(memory.get_mut_8bit_value(req_address), req_address),
+            Inst3Byte::SHYop => self.op_shy(memory.get_mut_8bit_value(req_address), req_address),
             Inst3Byte::NOPop => self.op_nop(),
+            Inst3Byte::AHXop => self.op_ahx(memory.get_mut_8bit_value(req_address)),
+            Inst3Byte::TASop => self.op_tas(memory.get_mut_8bit_value(req_address), req_address),
+            Inst3Byte::LASop => self.op_las(memory.get_mut_8bit_value(req_address)),
         }
     }
 }
@@ -663,10 +675,11 @@ pub const fn init_all_operations() -> ([Operation; 256], usize) {
     // ALR, ANC, ARR, AXS operations
     all_operations[0x4B] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::ALRop));
     all_operations[0x0B] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::ANCop));
+    all_operations[0x2B] = all_operations[0x0B];
     all_operations[0x6B] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::ARRop));
     all_operations[0xCB] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::AXSop));
 
-    oper_counter += 4;
+    oper_counter += 5;
 
     // LAX operations
     all_operations[0xA7] = Operation::new(3, MemoryType::ZeroPage, CPUInstByte::Two(Inst2Byte::LAXop));
@@ -809,7 +822,7 @@ pub const fn init_all_operations() -> ([Operation; 256], usize) {
     all_operations[0xF4] = all_operations[0x14];
     oper_counter += 6;
 
-    // STP operations
+    // STP (KIL, JAM, HLT) operations
     all_operations[0x02] = Operation::new(0, MemoryType::Implied, CPUInstByte::One(Inst1Byte::STPop));
     all_operations[0x12] = all_operations[0x02];
     all_operations[0x22] = all_operations[0x02];
@@ -824,6 +837,27 @@ pub const fn init_all_operations() -> ([Operation; 256], usize) {
     all_operations[0xF2] = all_operations[0x02];
 
     oper_counter += 12;
+
+    // XAA (ANE) operations
+    all_operations[0x8B] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::XAAop));
+    oper_counter += 1;
+
+    // AHX (AXA, SHA) operations
+    all_operations[0x93] = Operation::new(6, MemoryType::IndirectY, CPUInstByte::Two(Inst2Byte::AHXop));
+    all_operations[0x9F] = Operation::new(5, MemoryType::AbsoluteY, CPUInstByte::Three(Inst3Byte::AHXop));
+    oper_counter += 2;
+
+    // TAS (XAS, SHS) operations
+    all_operations[0x9B] = Operation::new(5, MemoryType::AbsoluteY, CPUInstByte::Three(Inst3Byte::TASop));
+    oper_counter += 1;
+
+    // LAX immediate (ATX, LXA, OAL) operation
+    all_operations[0xAB] = Operation::new(2, MemoryType::Immediate, CPUInstByte::Two(Inst2Byte::LAX2op));
+    oper_counter += 1;
+
+    // LAS (LAR, LAE) operations
+    all_operations[0xBB] = Operation::new(4, MemoryType::AbsoluteY, CPUInstByte::Three(Inst3Byte::LASop));
+    oper_counter += 1;
 
     (all_operations, oper_counter)
 }
