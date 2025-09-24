@@ -21,7 +21,7 @@ def main():
 
     assert len(ideal_columns[0]) == len(check_columns[0]), "Number of columns is different"
 
-    row_counter = 1
+    row_counter = 0
     fails = 0
     tolerance = 10
 
@@ -68,6 +68,8 @@ def get_by_version(version):
 def take_columns_ideal(cols_to_take, ideal_log):
     parsed_log = []
     for now_str in ideal_log.split("\n"):
+        if not now_str.strip():
+            continue
         parsed_str = []
         for now_col in cols_to_take:
             parsed_str.append(now_str[now_col[0]:now_col[0]+now_col[1]].strip())

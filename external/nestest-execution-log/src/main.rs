@@ -29,7 +29,7 @@ fn main() {
     assert!(file_name.is_none());
     match LOG_VERSION {
         1 => {
-            for _not_iter in 0..10000 {
+            for _not_iter in 0..8991 {
                 let old_cpu = cpu_unit;
                 let (_op, fected_bytes) = match cpu_unit.execute_cpu_iteration_info(&mut memory_unit) {
                     Ok(info) => info,

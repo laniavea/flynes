@@ -46,6 +46,7 @@ impl Cpu {
     pub fn op_lax(&mut self, data_ref: &u8) {
         self.reg_a = *data_ref;
         self.reg_x = self.reg_a;
+        update_zero_and_neg_flags(&mut self.cpu_status, self.reg_x)
     }
 
     /// SAX / AAX / AXS operation; Stores bitwise AND for reg_a and reg_x
