@@ -5,7 +5,8 @@ use better_assertions::{inst_assert, inst_assert_eq};
 use log::{error, info, debug};
 
 use crate::cpu::Cpu;
-use crate::memory::Memory;
+use crate::bus::Bus;
+use crate::mappers;
 
 const PRGROM_BYTES_IN_UNITS: usize = 16384;
 
@@ -150,31 +151,34 @@ impl NESHeaderInfo {
         }
         debug!("Number of PRGROM: validated successfully");
 
-        info!("NES header validated successfully");
+        info!("NES header was validated successfully");
 
         Ok(())
     }
 
-    pub fn create_modules(&self, file_data: &[u8]) -> (Cpu, Memory) {
+    pub fn create_modules(&self, file_data: &[u8]) -> (Cpu, Bus) {
+        info!("Start of creating NES modules");
         let mut cpu = Cpu::default();
-        let mut memory = Memory::default();
+        let mut bus = Bus::default();
+        debug!("CPU and bus initialization complete");
 
         if self.trainer_include {
             panic!("No trainer support");
         }
 
-        if self.number_prgrom_banks == 1 {
-            let prg_rom_size = PRGROM_BYTES_IN_UNITS;
-            let mut prgrom: Vec<u8> = file_data[0..prg_rom_size].to_vec();
-            prgrom.extend_from_slice(&file_data[0..prg_rom_size]);
-            memory.write_prg_rom(&prgrom);
-        } else {
-            let prg_rom_size = PRGROM_BYTES_IN_UNITS * self.number_prgrom_banks as usize;
-            memory.write_prg_rom(&file_data[0..prg_rom_size]);
-        }
-        cpu.init_pc(&memory);
+        debug!("Number of banks: {}", self.number_prgrom_banks);
 
-        (cpu, memory)
+        let prg_rom_size = PRGROM_BYTES_IN_UNITS * self.number_prgrom_banks as usize;
+        let (prg_data, mapper) = 
+            mappers::create_mapper(self._mapper_type, &file_data[0..prg_rom_size]).unwrap(); //TODO: Remove this unwrap
+        
+        bus.set_mapper_and_prgdata(mapper, prg_data);
+
+        debug!("PRG-ROM successfully wrote");
+        cpu.init_pc(&bus);
+        info!("NES modules were created successfully");
+
+        (cpu, bus)
     }
 }
 
@@ -183,7 +187,7 @@ fn is_bit_set(input_byte: u8, target_bit: usize) -> bool {
     input_byte & (0b0000_0001 << target_bit) == (0b0000_0001 << target_bit)
 }
 
-pub fn read_nes_file(path_to_nes_file: OsString) -> Result<(Cpu, Memory), Box<dyn std::error::Error>> {
+pub fn read_nes_file(path_to_nes_file: OsString) -> Result<(Cpu, Bus), Box<dyn std::error::Error>> {
     info!("Start of processing NES file");
     let nes_file_data = fs::read(path_to_nes_file)?;
 
@@ -195,7 +199,16 @@ pub fn read_nes_file(path_to_nes_file: OsString) -> Result<(Cpu, Memory), Box<dy
     debug!("NES file read successfully");
 
     let header_info = NESHeaderInfo::from_bytes(nes_header)?;
-    let (cpu, memory) = header_info.create_modules(&nes_file_data[16..]);
+    let (cpu, bus) = header_info.create_modules(&nes_file_data[16..]);
 
-    Ok((cpu, memory))
+    Ok((cpu, bus))
+}
+
+pub fn load_raw_commands(bus: &mut Bus, commands: Vec<u8>) {
+    debug!("Loading raw commands");
+
+    let (prg_data, mapper) = 
+        mappers::create_mapper(0, &commands).unwrap(); //TODO: Remove this unwrap
+
+    bus.set_mapper_and_prgdata(mapper, prg_data);
 }

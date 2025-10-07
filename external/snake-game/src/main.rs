@@ -7,7 +7,7 @@ use sdl2::pixels::Color;
 use sdl2::pixels::PixelFormatEnum;
 
 use flynes::cpu::Cpu;
-use flynes::memory::Memory;
+use flynes::bus::Bus;
 
 use std::thread;
 use std::time::Duration;
@@ -47,10 +47,11 @@ fn main() {
     ];
 
     let mut cpu_unit = Cpu::default();
-    let mut memory = Memory::default();
+    let mut bus = Bus::default();
 
     for (now_shift, now_byte) in snake_game_hex.iter().enumerate() {
-        *memory.get_mut_8bit_value(ROM_START + now_shift) = *now_byte;
+        bus.write_8bit_cpu(ROM_START + now_shift, *now_byte);
+        // *memory.get_mut_8bit_value(ROM_START + now_shift) = *now_byte;
     }
 
     let sdl_context = sdl2::init().unwrap();
@@ -80,18 +81,22 @@ fn main() {
     cpu_unit.set_pc(ROM_START as u16);
 
     loop {
-        handle_user_input(&mut memory, &mut event_pump);
-        *memory.get_mut_8bit_value(0xFEusize) = rng.random_range(1..16);
+        handle_user_input(&mut bus, &mut event_pump);
+        // *memory.get_mut_8bit_value(0xFEusize) = rng.random_range(1..16);
+        bus.write_8bit_cpu(0xFEusize, rng.random_range(1..16));
 
-        if read_screen_state(&memory, &mut screen_state) {
+        if read_screen_state(&mut bus, &mut screen_state) {
             texture.update(None, &screen_state, 32 * 3).unwrap();
             canvas.copy(&texture, None, None).unwrap();
             canvas.present();
         }
 
-        if cpu_unit.execute_cpu_iteration(&mut memory).is_err() {
-            println!("Unknonwn op");
-            break
+        match cpu_unit.execute_cpu_iteration(&mut bus) {
+            Ok(_) => (),
+            Err(err_msg) => {
+                println!("CPU iteration failed: {err_msg}");
+                break
+            }
         }
 
         if cpu_unit.get_program_counter() as usize == ROM_START + snake_game_hex.len() {
@@ -103,23 +108,23 @@ fn main() {
     }
 }
 
-fn handle_user_input(mem: &mut Memory, event_pump: &mut EventPump) {
+fn handle_user_input(bus: &mut Bus, event_pump: &mut EventPump) {
     for event in event_pump.poll_iter() {
         match event {
             Event::Quit { .. } | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                 std::process::exit(0)
             },
             Event::KeyDown { keycode: Some(Keycode::W), .. } => {
-                *mem.get_mut_8bit_value(0xFFusize) = 0x77;
+                bus.write_8bit_cpu(0xFFusize, 0x77);
             },
             Event::KeyDown { keycode: Some(Keycode::S), .. } => {
-                *mem.get_mut_8bit_value(0xFFusize) = 0x73;
+                bus.write_8bit_cpu(0xFFusize, 0x73);
             },
             Event::KeyDown { keycode: Some(Keycode::A), .. } => {
-                *mem.get_mut_8bit_value(0xFFusize) = 0x61;
+                bus.write_8bit_cpu(0xFFusize, 0x61);
             },
             Event::KeyDown { keycode: Some(Keycode::D), .. } => {
-                *mem.get_mut_8bit_value(0xFFusize) = 0x64;
+                bus.write_8bit_cpu(0xFFusize, 0x64);
             }
             _ => {/* do nothing */}
         }
@@ -140,11 +145,11 @@ fn color(byte: u8) -> Color {
     }
 }
 
-fn read_screen_state(memory: &Memory, frame: &mut [u8; (SNAKE_GAME_WIDTH * 3 * SNAKE_GAME_HEIGHT) as usize]) -> bool {
+fn read_screen_state(bus: &mut Bus, frame: &mut [u8; (SNAKE_GAME_WIDTH * 3 * SNAKE_GAME_HEIGHT) as usize]) -> bool {
     let mut frame_idx = 0;
     let mut update = false;
     for i in 0x0200..0x0600 {
-        let color_idx = memory.get_8bit_value(i as u16);
+        let color_idx = bus.read_8bit_cpu(i as u16);
         let (b1, b2, b3) = color(color_idx).rgb();
         if frame[frame_idx] != b1 || frame[frame_idx + 1] != b2 || frame[frame_idx + 2] != b3 {
             frame[frame_idx] = b1;

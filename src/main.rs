@@ -4,6 +4,9 @@ pub mod cpu;
 pub mod memory;
 pub mod cartridges;
 pub mod common;
+pub mod ppu;
+pub mod bus;
+pub mod mappers;
 
 const WORKFLOW_MODE: u8 = 2;
 
@@ -20,8 +23,8 @@ fn main() {
 fn temp_unit() {
     let mut cpu_unit = cpu::Cpu::default();
     info!("CPU unit initializated");
-    let mut memory_unit = memory::Memory::default();
-    info!("Memory unit initializated");
+    let mut bus = bus::Bus::default();
+    info!("Bus unit initializated");
 
     use rand;
     let mut commands: Vec<u8> = vec![0xCAu8; 0x8000];
@@ -31,14 +34,14 @@ fn temp_unit() {
 
     commands[0x0000] = 0xA9;
     commands[0x0001] = 0xA9;
-    memory_unit.load_rom(&commands);
+    cartridges::load_raw_commands(&mut bus, commands);
 
-    cpu_unit.init_pc(&memory_unit);
+    cpu_unit.init_pc(&bus);
 
     use std::time::Instant;
     let t = Instant::now();
 
-    cpu_unit.run_cpu(&mut memory_unit);
+    cpu_unit.run_cpu(&mut bus);
 
     let tt = t.elapsed();
     println!("Elapsed {tt:?}");

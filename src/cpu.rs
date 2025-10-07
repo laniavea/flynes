@@ -1,7 +1,8 @@
 use better_assertions::{inst_assert_eq, fast_assert};
 use log::{trace, debug, info, error};
 
-use crate::memory::{Memory, MemoryType};
+use crate::memory::MemoryType;
+use crate::bus::Bus;
 use crate::common;
 use instructions::{Operation, CPUInstByte};
 
@@ -58,8 +59,8 @@ impl Default for Cpu {
 }
 
 impl Cpu {
-    pub fn init_pc(&mut self, memory: &Memory) {
-        let exec_pc = memory.get_16bit_value(0xFFFC);
+    pub fn init_pc(&mut self, bus: &Bus) {
+        let exec_pc = bus.read_16bit_cpu(0xFFFC);
         self.program_counter = exec_pc;
         debug!("Initialized PC: {}", common::number_to_hex(exec_pc, true))
     }
@@ -95,7 +96,7 @@ impl Cpu {
 }
 
 impl Cpu {
-    pub fn get_by_1byte_address<'a>(&self, mt: MemoryType, value: &'a mut u8, memory: &'a mut Memory) -> &'a mut u8 {
+    pub fn conv_1byte_address(&self, mt: MemoryType, value: u8, bus: &mut Bus) -> u16 {
         fast_assert!([
             MemoryType::Immediate,
             MemoryType::ZeroPage,
@@ -108,37 +109,35 @@ impl Cpu {
 
         match mt {
             MemoryType::Immediate => {
-                value
+                self.program_counter
             },
             MemoryType::ZeroPage => {
-                memory.get_mut_8bit_value(*value)
+                value as u16
             },
             MemoryType::ZeroPageX => {
                 let value = value.wrapping_add(self.reg_x);
-                memory.get_mut_8bit_value(value)
+                value as u16
             },
             MemoryType::ZeroPageY => {
                 let value = value.wrapping_add(self.reg_y);
-                memory.get_mut_8bit_value(value)
+                value as u16
             },
             MemoryType::Relative => {
-                value
+                self.program_counter
             },
             MemoryType::IndirectX => {
                 let value = value.wrapping_add(self.reg_x);
-                let new_address = memory.get_16bit_value_zp_wrap(value as u16);
-                memory.get_mut_8bit_value(new_address)
+                bus.read_16bit_cpu_zp_wrap(value as u16)
             },
             MemoryType::IndirectY => {
-                let value_data = memory.get_16bit_value_zp_wrap(*value as u16);
-                let new_address = value_data.wrapping_add(self.reg_y as u16);
-                memory.get_mut_8bit_value(new_address)
+                let value_data = bus.read_16bit_cpu_zp_wrap(value as u16);
+                value_data.wrapping_add(self.reg_y as u16)
             },
             _ => unreachable!(),
         }
     }
 
-    pub fn conv_2byte_address(&self, mt: MemoryType, value: u16, memory: &Memory) -> u16 {
+    pub fn conv_2byte_address(&self, mt: MemoryType, value: u16, bus: &Bus) -> u16 {
         fast_assert!([
             MemoryType::Absolute,
             MemoryType::AbsoluteX,
@@ -151,7 +150,7 @@ impl Cpu {
                 value
             },
             MemoryType::Indirect => {
-                memory.get_16bit_value_jmp_bug(value)
+                bus.read_16bit_cpu_jmp_bug(value)
             },
             MemoryType::AbsoluteX => {
                 value.wrapping_add(self.reg_x as u16)
@@ -165,26 +164,28 @@ impl Cpu {
 }
 
 impl Cpu {
-    pub fn run_cpu(&mut self, memory: &mut Memory) {
+    pub fn run_cpu(&mut self, bus: &mut Bus) {
         debug!("Running CPU with next PC: {}", common::number_to_hex(self.program_counter, true));
 
         let max_number_of_operations = 10000;
         let mut now_oper: usize = 0;
 
         while now_oper < max_number_of_operations {
-            if self.execute_cpu_iteration(memory).is_err() {
-                error!("Error while CPU execution");
-                break
+            match self.execute_cpu_iteration(bus) {
+                Ok(_) => now_oper += 1,
+                Err(err_msg) => {
+                    error!("Error while CPU execution: {err_msg}");
+                    break
+                }
             }
-            now_oper += 1;
         }
 
         info!("Leaving RUN CPU on {now_oper}");
     }
 
     /// CHANGE ALSO execute_cpu_iteration_info
-    pub fn execute_cpu_iteration(&mut self, memory: &mut Memory) -> Result<u8, &'static str> {
-        let now_command = memory.get_8bit_value(self.program_counter);
+    pub fn execute_cpu_iteration(&mut self, bus: &mut Bus) -> Result<u8, &'static str> {
+        let now_command = bus.read_8bit_cpu(self.program_counter);
         let now_inst = self.instruction_set[now_command as usize];
         trace!("CPU got command: {}, instruction: {now_inst}", common::number_to_hex(now_command, true));
         trace!(
@@ -195,26 +196,28 @@ impl Cpu {
 
         match now_inst.op_name() {
             CPUInstByte::One(inst_entry) => {
-                self.program_counter += 1;
-                self.execute_inst_1_byte(inst_entry, memory);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                self.execute_inst_1_byte(inst_entry, bus);
 
                 if matches!(self.state, CpuState::Stopped) {
                     return Err("CPU was stopped by STP instruction")
                 }
             },
             CPUInstByte::Two(inst_entry) => {
-                let mut next_data_byte = memory.get_8bit_value(self.program_counter.wrapping_add(1));
-                let target_byte = self.get_by_1byte_address(now_inst.memory_type(), &mut next_data_byte, memory);
-                trace!("Current data value: {}", common::number_to_hex(*target_byte, true));
-                self.program_counter += 2;
-                self.execute_inst_2_byte(inst_entry, target_byte);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                let next_data_byte = bus.read_8bit_cpu(self.program_counter);
+                let target_byte = self.conv_1byte_address(now_inst.memory_type(), next_data_byte, bus);
+                trace!("Current data value: {}", common::number_to_hex(target_byte, true));
+                self.program_counter = self.program_counter.wrapping_add(1);
+                self.execute_inst_2_byte(bus, inst_entry, target_byte);
             },
             CPUInstByte::Three(inst_entry) => {
-                let next_value = memory.get_16bit_value(self.program_counter.wrapping_add(1));
-                let target_address = self.conv_2byte_address(now_inst.memory_type(), next_value, memory);
-                trace!("Converted address: {}", common::number_to_hex(target_address, true));
-                self.program_counter += 3;
-                self.execute_inst_3_byte(inst_entry, target_address, memory);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                let next_value = bus.read_16bit_cpu(self.program_counter);
+                let target_address = self.conv_2byte_address(now_inst.memory_type(), next_value, bus);
+                trace!("Address:{} -> {}",common::number_to_hex(next_value, true), common::number_to_hex(target_address, true));
+                self.program_counter = self.program_counter.wrapping_add(2);
+                self.execute_inst_3_byte(bus, inst_entry, target_address);
             },
             CPUInstByte::NoOp => {
                 error!(
@@ -230,8 +233,8 @@ impl Cpu {
     }
 
     /// CHANGE ALSO execute_cpu_iteration
-    pub fn execute_cpu_iteration_info(&mut self, memory: &mut Memory) -> Result<(Operation, Vec<u8>), &'static str> {
-        let now_command = memory.get_8bit_value(self.program_counter);
+    pub fn execute_cpu_iteration_info(&mut self, bus: &mut Bus) -> Result<(Operation, Vec<u8>), &'static str> {
+        let now_command = bus.read_8bit_cpu(self.program_counter);
         let now_inst = self.instruction_set[now_command as usize];
         let mut fetched_bytes: Vec<u8> = Vec::new();
         fetched_bytes.push(now_command);
@@ -244,25 +247,31 @@ impl Cpu {
 
         match now_inst.op_name() {
             CPUInstByte::One(inst_entry) => {
-                self.program_counter += 1;
-                self.execute_inst_1_byte(inst_entry, memory);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                self.execute_inst_1_byte(inst_entry, bus);
+
+                if matches!(self.state, CpuState::Stopped) {
+                    return Err("CPU was stopped by STP instruction")
+                }
             },
             CPUInstByte::Two(inst_entry) => {
-                let mut next_data_byte = memory.get_8bit_value(self.program_counter.wrapping_add(1));
+                self.program_counter = self.program_counter.wrapping_add(1);
+                let next_data_byte = bus.read_8bit_cpu(self.program_counter);
                 fetched_bytes.push(next_data_byte);
-                let target_byte = self.get_by_1byte_address(now_inst.memory_type(), &mut next_data_byte, memory);
-                trace!("Current data value: {}", common::number_to_hex(*target_byte, true));
-                self.program_counter += 2;
-                self.execute_inst_2_byte(inst_entry, target_byte);
+                let target_byte = self.conv_1byte_address(now_inst.memory_type(), next_data_byte, bus);
+                trace!("Current data value: {}", common::number_to_hex(target_byte, true));
+                self.program_counter = self.program_counter.wrapping_add(1);
+                self.execute_inst_2_byte(bus, inst_entry, target_byte);
             },
             CPUInstByte::Three(inst_entry) => {
-                fetched_bytes.push(memory.get_8bit_value(self.program_counter.wrapping_add(1)));
-                fetched_bytes.push(memory.get_8bit_value(self.program_counter.wrapping_add(2)));
-                let next_value = memory.get_16bit_value(self.program_counter.wrapping_add(1));
-                let target_address = self.conv_2byte_address(now_inst.memory_type(), next_value, memory);
-                trace!("Converted address: {}", common::number_to_hex(target_address, true));
-                self.program_counter += 3;
-                self.execute_inst_3_byte(inst_entry, target_address, memory);
+                fetched_bytes.push(bus.read_8bit_cpu(self.program_counter.wrapping_add(1)));
+                fetched_bytes.push(bus.read_8bit_cpu(self.program_counter.wrapping_add(2)));
+                self.program_counter = self.program_counter.wrapping_add(1);
+                let next_value = bus.read_16bit_cpu(self.program_counter);
+                let target_address = self.conv_2byte_address(now_inst.memory_type(), next_value, bus);
+                trace!("Address:{} -> {}",common::number_to_hex(next_value, true), common::number_to_hex(target_address, true));
+                self.program_counter = self.program_counter.wrapping_add(2);
+                self.execute_inst_3_byte(bus, inst_entry, target_address);
             },
             CPUInstByte::NoOp => {
                 error!(
