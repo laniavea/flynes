@@ -1,3 +1,4 @@
+use log::warn;
 use better_assertions::inst_assert;
 
 const _PPU_CTRL_REG: usize = 0;
@@ -18,11 +19,76 @@ pub struct Ppu {
 impl Ppu {
     pub fn write_to_registers(&mut self, register: usize, data: u8) {
         inst_assert!((0..=8).contains(&register));
-        self.registers[register] = data;
+        match register {
+            0 => {
+                self.registers[register] = data;
+            },
+            1 => {
+                self.registers[register] = data;
+            },
+            2 => {
+                warn!("Trying to write to $2002, which is read only, ignored");
+            },
+            3 => {
+                self.registers[register] = data;
+            },
+            4 => {
+                self.registers[register] = data;
+            },
+            5 => {
+                self.registers[register] = data;
+            },
+            6 => {
+                self.registers[register] = data;
+            },
+            7 => {
+                self.registers[register] = data;
+            },
+            8 => {
+                self.registers[register] = data;
+            },
+            _ => unreachable!("No more registers")
+        }
+
     }
 
     pub fn read_from_registers(&self, register: usize) -> u8 {
         inst_assert!((0..=8).contains(&register));
-        self.registers[register]
+        match register {
+            0 => {
+                warn!("Trying to read from $2000, which is write only, ret 0");
+                0
+            },
+            1 => {
+                warn!("Trying to read from $2001, which is write only, ret 0");
+                0
+            },
+            2 => {
+                self.registers[register]
+            },
+            3 => {
+                warn!("Trying to read from $2003, which is write only, ret 0");
+                0
+            },
+            4 => {
+                self.registers[register]
+            },
+            5 => {
+                warn!("Trying to read from $2005, which is write only, ret 0");
+                0
+            },
+            6 => {
+                warn!("Trying to read from $2006, which is write only, ret 0");
+                0
+            },
+            7 => {
+                self.registers[register]
+            },
+            8 => {
+                warn!("Trying to read from $2008, which is write only, ret 0");
+                0
+            },
+            _ => unreachable!("No more registers")
+        }
     }
 }
