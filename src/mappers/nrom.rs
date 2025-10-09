@@ -18,23 +18,6 @@ pub struct NROM {
 }
 
 impl NROM {
-    // pub fn init_prg(prg_rom: &[u8], prg_data: &mut Vec<u8>) -> Result<Mappers, MappersError> {
-    //     if !PRG_ROM_CAPACITY.contains(&prg_rom.len()) {
-    //         return Err(MappersError::IncorrectSizePRGROM);
-    //     }
-    //     let prg_rom_mirror = prg_rom.len() == DataSizes::Size16K.to_bytes();
-    //
-    //     mappers::fill_ram(prg_data, PRG_RAM_CAPACITY);
-    //     prg_data.extend_from_slice(prg_rom);
-    //
-    //     Ok(Mappers::NROM(
-    //         NROM {
-    //             prg_rom_start: PRG_RAM_CAPACITY,
-    //             prg_rom_mirror
-    //         }
-    //     ))
-    // }
-
     pub fn init(mem_module: &mut Memory, prg_rom: &[u8], chr_rom: &[u8]) -> Result<Mappers, MappersError> {
         if !PRG_ROM_CAPACITY.contains(&prg_rom.len()) {
             return Err(MappersError::IncorrectSizePRGROM);
