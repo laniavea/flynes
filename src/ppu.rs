@@ -55,38 +55,18 @@ impl Ppu {
     pub fn read_from_registers(&self, register: usize) -> u8 {
         inst_assert!((0..=8).contains(&register));
         match register {
-            0 => {
-                warn!("Trying to read from $2000, which is write only, ret 0");
-                0
-            },
-            1 => {
-                warn!("Trying to read from $2001, which is write only, ret 0");
+            0 | 1 | 3 | 5 | 6 | 8 => {
+                warn!("Trying to read from 0x200{register}, which is write only, ret 0");
                 0
             },
             2 => {
                 self.registers[register]
             },
-            3 => {
-                warn!("Trying to read from $2003, which is write only, ret 0");
-                0
-            },
             4 => {
                 self.registers[register]
             },
-            5 => {
-                warn!("Trying to read from $2005, which is write only, ret 0");
-                0
-            },
-            6 => {
-                warn!("Trying to read from $2006, which is write only, ret 0");
-                0
-            },
             7 => {
                 self.registers[register]
-            },
-            8 => {
-                warn!("Trying to read from $2008, which is write only, ret 0");
-                0
             },
             _ => unreachable!("No more registers")
         }

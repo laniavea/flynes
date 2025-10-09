@@ -21,9 +21,8 @@ impl Bus {
         &mut self.memory
     }
 
-    pub fn set_mapper_and_prgdata(&mut self, mapper: Mappers, prg_data: Vec<u8>) {
+    pub fn set_mapper(&mut self, mapper: Mappers) {
         self.mapper = mapper;
-        self.memory.set_prg_data(prg_data);
     }
 }
 

@@ -1,13 +1,15 @@
 use better_assertions::inst_assert;
 use log::warn;
 
-use crate::mappers::create_ram;
+use crate::mappers;
 use crate::mappers::{Mappers, MapperRW, MappersError};
+use crate::memory::Memory;
 use crate::common::DataSizes;
 
 const PRG_ROM_CAPACITY: [usize; 2] = [DataSizes::Size16K.to_bytes(), DataSizes::Size32K.to_bytes()];
 const PRG_RAM_CAPACITY: usize = DataSizes::Size8K.to_bytes();
 const PRG_RAM_HW_START: usize = 0x6000;
+const CHR_CAPACITY: usize = DataSizes::Size8K.to_bytes();
 
 #[derive(Debug, Clone)]
 pub struct NROM {
@@ -16,15 +18,38 @@ pub struct NROM {
 }
 
 impl NROM {
-    pub fn init(prg_rom: &[u8], prg_data: &mut Vec<u8>) -> Result<Mappers, MappersError> {
+    // pub fn init_prg(prg_rom: &[u8], prg_data: &mut Vec<u8>) -> Result<Mappers, MappersError> {
+    //     if !PRG_ROM_CAPACITY.contains(&prg_rom.len()) {
+    //         return Err(MappersError::IncorrectSizePRGROM);
+    //     }
+    //     let prg_rom_mirror = prg_rom.len() == DataSizes::Size16K.to_bytes();
+    //
+    //     mappers::fill_ram(prg_data, PRG_RAM_CAPACITY);
+    //     prg_data.extend_from_slice(prg_rom);
+    //
+    //     Ok(Mappers::NROM(
+    //         NROM {
+    //             prg_rom_start: PRG_RAM_CAPACITY,
+    //             prg_rom_mirror
+    //         }
+    //     ))
+    // }
+
+    pub fn init(mem_module: &mut Memory, prg_rom: &[u8], chr_rom: &[u8]) -> Result<Mappers, MappersError> {
         if !PRG_ROM_CAPACITY.contains(&prg_rom.len()) {
             return Err(MappersError::IncorrectSizePRGROM);
         }
         let prg_rom_mirror = prg_rom.len() == DataSizes::Size16K.to_bytes();
 
-        create_ram(prg_data, PRG_RAM_CAPACITY);
-        prg_data.extend_from_slice(prg_rom);
+        mappers::fill_ram(mem_module.prg_data_mut(), PRG_RAM_CAPACITY);
+        mem_module.prg_data_mut().extend_from_slice(prg_rom);
+        
+        if chr_rom.len() != CHR_CAPACITY {
+            return Err(MappersError::IncorrectSizeCHRROM);
+        }
 
+        *mem_module.chr_data_mut() = chr_rom.to_vec();
+        
         Ok(Mappers::NROM(
             NROM {
                 prg_rom_start: PRG_RAM_CAPACITY,
@@ -69,5 +94,11 @@ impl MapperRW for NROM {
         }
 
         prg_data[shifted_ref] = value;
+    }
+
+    fn mapper_read_ppu(&self, data_ref: usize, chr_data: &[u8]) -> u8 {
+        inst_assert!((0x0000..=0x1FFF).contains(&data_ref));
+
+        chr_data[data_ref]
     }
 }

@@ -92,8 +92,6 @@ const _PPU_MIRRORS: MemoryAllocInfo = MemoryAllocInfo {
     size: 0xB000,
 };
 
-const PPU_COMP_MEMORY_SIZE: usize = PPU_PATTERN_TABLES.size + PPU_NAME_TABLES.size + PPU_PALETTES.size;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryType {
     Implied,
@@ -133,18 +131,22 @@ impl std::fmt::Display for MemoryType {
 
 #[derive(Debug, Clone)]
 pub struct Memory {
-    ram: [u8; RAM.size],
     prg_data: Vec<u8>,
-    _ppu_data: [u8; PPU_COMP_MEMORY_SIZE],
+    chr_data: Vec<u8>,
+    ram: [u8; RAM.size],
+    vram: [u8; PPU_NAME_TABLES.size],
+    palettes_ram: [u8; PPU_PALETTES.size]
 }
 
 impl Default for Memory {
     fn default() -> Memory {
         inst_assert_eq!(ALL_COMP_MEMORY_SIZE + RAM_MIRRORS.size + PPU_REGS_MIRRORS.size, (u16::MAX as usize) + 1);
         Memory {
-            ram: [0u8; RAM.size],
             prg_data: Vec::new(),
-            _ppu_data: [0u8; PPU_COMP_MEMORY_SIZE],
+            chr_data: Vec::new(),
+            ram: [0u8; RAM.size],
+            vram: [0u8; PPU_NAME_TABLES.size],
+            palettes_ram: [0u8; PPU_PALETTES.size],
         }
     }
 }
@@ -170,6 +172,14 @@ impl Memory {
 
     pub fn prg_data_mut(&mut self) -> &mut Vec<u8> {
         &mut self.prg_data
+    }
+
+    pub fn chr_data(&self) -> &Vec<u8> {
+        &self.chr_data
+    }
+
+    pub fn chr_data_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.chr_data
     }
 }
 
@@ -304,9 +314,11 @@ fn test_stack_push_pull() {
     let mut rng: StdRng = StdRng::seed_from_u64(42);
 
     let mut mem: Memory = Memory {
-        ram: [0u8; RAM.size],
         prg_data: Vec::new(),
-        _ppu_data: [0u8; PPU_COMP_MEMORY_SIZE],
+        chr_data: Vec::new(),
+        ram: [0u8; RAM.size],
+        vram: [0u8; PPU_NAME_TABLES.size],
+        palettes_ram: [0u8; PPU_PALETTES.size],
     };
 
     let mut cpu: Cpu = Cpu::default();

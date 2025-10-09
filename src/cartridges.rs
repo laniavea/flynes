@@ -7,8 +7,10 @@ use log::{error, info, debug};
 use crate::cpu::Cpu;
 use crate::bus::Bus;
 use crate::mappers;
+use crate::common::DataSizes;
 
-const PRGROM_BYTES_IN_UNITS: usize = 16384;
+const PRGROM_BYTES_IN_UNITS: usize = DataSizes::Size16K.to_bytes();
+const CHRROM_BYTES_IN_UNITS: usize = DataSizes::Size8K.to_bytes();
 
 const CB1_VRAM_LAYOUT: usize = 3;
 const CB1_TRAINER: usize = 2;
@@ -169,10 +171,19 @@ impl NESHeaderInfo {
         debug!("Number of banks: {}", self.number_prgrom_banks);
 
         let prg_rom_size = PRGROM_BYTES_IN_UNITS * self.number_prgrom_banks as usize;
-        let (prg_data, mapper) = 
-            mappers::create_mapper(self._mapper_type, &file_data[0..prg_rom_size]).unwrap(); //TODO: Remove this unwrap
+        let chr_rom_size = CHRROM_BYTES_IN_UNITS * self._number_chrrom_banks as usize;
+
+        let prg_data = &file_data[0..prg_rom_size];
+        let chr_data = &file_data[prg_rom_size..prg_rom_size+chr_rom_size];
         
-        bus.set_mapper_and_prgdata(mapper, prg_data);
+        let mapper = mappers::create_mapper(
+            self._mapper_type,
+            bus.memory_mut(),
+            prg_data,
+            chr_data
+        ).unwrap(); // TODO: Remove unwrap
+
+        bus.set_mapper(mapper);
 
         debug!("PRG-ROM successfully wrote");
         cpu.init_pc(&bus);
@@ -207,8 +218,29 @@ pub fn read_nes_file(path_to_nes_file: OsString) -> Result<(Cpu, Bus), Box<dyn s
 pub fn load_raw_commands(bus: &mut Bus, commands: Vec<u8>) {
     debug!("Loading raw commands");
 
-    let (prg_data, mapper) = 
-        mappers::create_mapper(0, &commands).unwrap(); //TODO: Remove this unwrap
+    let prg_data = append_missed_data(commands, DataSizes::Size16K.to_bytes());
 
-    bus.set_mapper_and_prgdata(mapper, prg_data);
+    let mapper = mappers::create_mapper(
+        0,
+        bus.memory_mut(),
+        &prg_data,
+        &vec![0u8; DataSizes::Size8K.to_bytes()],
+    ).unwrap(); //TODO: Remove this unwrap
+
+    bus.set_mapper(mapper);
+}
+
+fn append_missed_data(mut data_to_append: Vec<u8>, target_size: usize) -> Vec<u8> {
+    match target_size.cmp(&data_to_append.len()) {
+        std::cmp::Ordering::Less => {
+            error!("Provided data is bigger than target");
+            data_to_append
+        },
+        std::cmp::Ordering::Equal => data_to_append,
+        std::cmp::Ordering::Greater => {
+            let number_of_bytes_to_fill = target_size - data_to_append.len();
+            data_to_append.extend(vec![0u8; number_of_bytes_to_fill].iter());
+            data_to_append
+        }
+    }
 }
