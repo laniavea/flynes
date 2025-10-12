@@ -32,3 +32,12 @@ pub fn number_to_hex<T: std::fmt::UpperHex + Sized> (value: T, with_hex_iden: bo
 
     res
 }
+
+#[inline(always)]
+pub fn is_bit_set
+    <T: std::ops::BitAnd + Copy> (
+        check_value: T,
+        target_bit: T
+    ) -> bool where <T as std::ops::BitAnd>::Output: PartialEq<T> {
+    check_value & target_bit == target_bit
+}

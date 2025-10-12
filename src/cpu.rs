@@ -167,7 +167,7 @@ impl Cpu {
     pub fn run_cpu(&mut self, bus: &mut Bus) {
         debug!("Running CPU with next PC: {}", common::number_to_hex(self.program_counter, true));
 
-        let max_number_of_operations = 10000;
+        let max_number_of_operations = 10_000;
         let mut now_oper: usize = 0;
 
         while now_oper < max_number_of_operations {
