@@ -36,7 +36,7 @@ fn temp_unit() {
     commands[0x0001] = 0xA9;
     cartridges::load_raw_commands(&mut bus, commands);
 
-    cpu_unit.init_pc(&bus);
+    cpu_unit.init_pc(&mut bus);
 
     use std::time::Instant;
     let t = Instant::now();

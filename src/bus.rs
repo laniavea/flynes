@@ -27,7 +27,7 @@ impl Bus {
 }
 
 impl Bus {
-    pub fn read_8bit_cpu<T>(&self, requested_address: T) -> u8
+    pub fn read_8bit_cpu<T>(&mut self, requested_address: T) -> u8
     where 
         T: Into<usize> + Copy
     {
@@ -82,14 +82,14 @@ impl Bus {
         }
     }
 
-    pub fn read_16bit_cpu(&self, requested_address: u16) -> u16 {
+    pub fn read_16bit_cpu(&mut self, requested_address: u16) -> u16 {
         let requested_byte = self.read_8bit_cpu(requested_address);
         let next_byte = self.read_8bit_cpu(requested_address.wrapping_add(1));
 
         ((next_byte as u16) << 8) + (requested_byte as u16)
     }
 
-    pub fn read_16bit_cpu_zp_wrap(&self, requested_address: u16) -> u16 {
+    pub fn read_16bit_cpu_zp_wrap(&mut self, requested_address: u16) -> u16 {
         if requested_address == 0x00FF {
             let first_byte = self.read_8bit_cpu(0x0000usize) as u16;
             let second_byte = self.read_8bit_cpu(0x00FFusize) as u16;
@@ -99,7 +99,7 @@ impl Bus {
         self.read_16bit_cpu(requested_address)
     }
 
-    pub fn read_16bit_cpu_jmp_bug(&self, requested_address: u16) -> u16 {
+    pub fn read_16bit_cpu_jmp_bug(&mut self, requested_address: u16) -> u16 {
         if requested_address & 0x00FF == 0x00FF {
             let first_byte = self.read_8bit_cpu(requested_address & 0xFF00) as u16;
             let second_byte = self.read_8bit_cpu(requested_address) as u16;

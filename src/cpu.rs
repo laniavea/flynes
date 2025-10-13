@@ -59,7 +59,7 @@ impl Default for Cpu {
 }
 
 impl Cpu {
-    pub fn init_pc(&mut self, bus: &Bus) {
+    pub fn init_pc(&mut self, bus: &mut Bus) {
         let exec_pc = bus.read_16bit_cpu(0xFFFC);
         self.program_counter = exec_pc;
         debug!("Initialized PC: {}", common::number_to_hex(exec_pc, true))
@@ -137,7 +137,7 @@ impl Cpu {
         }
     }
 
-    pub fn conv_2byte_address(&self, mt: MemoryType, value: u16, bus: &Bus) -> u16 {
+    pub fn conv_2byte_address(&self, mt: MemoryType, value: u16, bus: &mut Bus) -> u16 {
         fast_assert!([
             MemoryType::Absolute,
             MemoryType::AbsoluteX,

@@ -77,12 +77,76 @@ impl PpuCtrlSettings {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PpuMaskSetting {
+    emphasize_blue: bool,
+    emphasize_green: bool,
+    emphasize_red: bool,
+    sprite_render: bool,
+    bg_render: bool,
+    leftmost_sprite_render: bool,
+    leftmost_bg_render: bool,
+    greyscale: bool,
+}
+
+impl PpuMaskSetting {
+    fn set(&mut self, settings: u8) {
+        self.emphasize_blue = is_bit_set(settings, 0b1000_0000);
+        self.emphasize_green = is_bit_set(settings, 0b0100_0000);
+        self.emphasize_red = is_bit_set(settings, 0b0010_0000);
+        self.sprite_render = is_bit_set(settings, 0b0001_0000);
+        self.bg_render = is_bit_set(settings, 0b0000_1000);
+        self.leftmost_sprite_render = is_bit_set(settings, 0b0000_0100);
+        self.leftmost_bg_render = is_bit_set(settings, 0b0000_0010);
+        self.greyscale = is_bit_set(settings, 0b0000_0001);
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PpuStatus {
+    value: u8
+}
+
+impl PpuStatus {
+    pub fn set_v_blank(&mut self) {
+        self.value |= 0b1000_0000
+    }
+
+    pub fn clear_v_blank(&mut self) {
+        self.value &= 0b0111_1111
+    }
+
+    pub fn set_sprite_zero_hit(&mut self) {
+        self.value |= 0b0100_0000
+    }
+
+    pub fn clear_sprite_zero_hit(&mut self) {
+        self.value &= 0b1011_1111
+    }
+
+    pub fn set_sprite_overflow(&mut self) {
+        self.value |= 0b0010_0000
+    }
+
+    pub fn clear_sprite_overflow(&mut self) {
+        self.value &= 0b1101_1111
+    }
+
+    pub fn open_bus_write(&mut self, value_to_write: u8) {
+        self.value &= 0b1110_0000;
+        self.value |= 0b0001_1111 & value_to_write;
+    }
+}
+
+
 #[derive(Debug, Default, Clone)]
 pub struct Ppu {
     registers: [u8; 9],
     t_register: u16,
     write_toogle: bool,
     ctrl_settings: PpuCtrlSettings,
+    render_settings: PpuMaskSetting,
+    ppu_status: PpuStatus
 
 }
 
@@ -91,23 +155,25 @@ impl Ppu {
         inst_assert!((0..=8).contains(&register));
         match register {
             PPU_CTRL_REG => {
-                self.registers[register] = data;
+                self.registers[PPU_CTRL_REG] = data;
                 self.ctrl_settings.set(data);
             },
             PPU_MASK_REG => {
-                self.registers[register] = data;
+                self.registers[PPU_MASK_REG] = data;
+                self.render_settings.set(data);
             },
             PPU_STATUS_REG => {
-                warn!("Trying to write to $2002, which is read only, ignored");
+                self.ppu_status.open_bus_write(data);
+                warn!("Trying to write to $2002, which is read only, open bus write");
             },
             OAM_ADDR_REG => {
-                self.registers[register] = data;
+                self.registers[OAM_ADDR_REG] = data;
             },
             OAM_DATA_REG => {
-                self.registers[register] = data;
+                self.registers[OAM_DATA_REG] = data;
             },
             PPU_SCROLL_REG => {
-                self.registers[register] = data;
+                self.registers[PPU_SCROLL_REG] = data;
             },
             PPU_ADDR_REG => {
                 if !self.write_toogle { // First write, w is 0 (false)
@@ -117,10 +183,9 @@ impl Ppu {
                     self.t_register += data as u16;
                     self.write_toogle = false;
                 }
-                self.registers[register] = data;
+                self.registers[PPU_ADDR_REG] = data;
             },
             PPU_DATA_REG => {
-                self.registers[PPU_ADDR_REG] = self.registers[PPU_ADDR_REG].wrapping_add(0);
                 self.registers[register] = data;
             },
             OAM_DMA_REG => {
@@ -131,7 +196,7 @@ impl Ppu {
 
     }
 
-    pub fn read_from_registers(&self, register: usize) -> u8 {
+    pub fn read_from_registers(&mut self, register: usize) -> u8 {
         inst_assert!((0..=8).contains(&register));
         match register {
             0 | 1 | 3 | 5 | 6 | 8 => {
@@ -139,13 +204,15 @@ impl Ppu {
                 0
             },
             PPU_STATUS_REG => {
-                self.registers[register]
+                self.write_toogle = false;
+                self.registers[PPU_STATUS_REG] = self.ppu_status.value;
+                self.registers[PPU_STATUS_REG]
             },
             OAM_DATA_REG => {
-                self.registers[register]
+                self.registers[OAM_DATA_REG]
             },
             PPU_DATA_REG => {
-                self.registers[register]
+                self.registers[PPU_DATA_REG]
             },
             _ => unreachable!("No more registers")
         }

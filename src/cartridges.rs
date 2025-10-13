@@ -186,7 +186,7 @@ impl NESHeaderInfo {
         bus.set_mapper(mapper);
 
         debug!("PRG-ROM successfully wrote");
-        cpu.init_pc(&bus);
+        cpu.init_pc(&mut bus);
         info!("NES modules were created successfully");
 
         (cpu, bus)
