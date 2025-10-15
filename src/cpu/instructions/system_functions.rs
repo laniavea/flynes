@@ -28,42 +28,57 @@ impl Cpu {
     }
 }
 
-// #[test]
-// fn test_system_functions() {
-//     use rand::{SeedableRng, Rng};
-//     use rand::rngs::StdRng;
-//
-//     let mut rng: StdRng = StdRng::seed_from_u64(42);
-//
-//     let mut cpu: Cpu = Cpu {
-//         stack_pointer: 0xFF,
-//         program_counter: 0u16,
-//         cpu_status: 0u8,
-//         ..Default::default()
-//     };
-//
-//     let mut memory = Memory::default();
-//
-//     for _ in 0..1000 {
-//         let old_random_pc = rng.random::<u16>();
-//         let random_cpu_status = rng.random::<u8>() | (0b0000_0001 << UNUSED_FLAG);
-//         let new_random_pc = rng.random::<u16>();
-//
-//         // *memory.get_mut_8bit_value(0xFFFEu16) = new_random_pc as u8;
-//         // *memory.get_mut_8bit_value(0xFFFFu16) = (new_random_pc >> 8) as u8;
-//
-//         cpu.cpu_status = random_cpu_status;
-//         cpu.program_counter = old_random_pc;
-//         cpu.stack_pointer = 0xFF;
-//
-//         cpu.op_brk(&mut memory);
-//
-//         assert_eq!(cpu.program_counter, new_random_pc);
-//         assert_eq!(cpu.stack_pointer, 0xFC);
-//         assert_eq!(cpu.cpu_status, random_cpu_status | (0b0000_0001 << BREAK_FLAG));
-//
-//         cpu.op_rti(&memory);
-//         assert_eq!(cpu.cpu_status, random_cpu_status | (0b0000_0001 << BREAK_FLAG));
-//         assert_eq!(cpu.program_counter, old_random_pc);
-//     }
-// }
+#[test]
+fn test_system_functions() {
+    use rand::{SeedableRng, Rng};
+    use rand::rngs::StdRng;
+
+    use crate::mappers;
+    use crate::common::DataSizes;
+
+    let mut rng: StdRng = StdRng::seed_from_u64(42);
+
+    let mut cpu: Cpu = Cpu {
+        stack_pointer: 0xFF,
+        program_counter: 0u16,
+        cpu_status: 0u8,
+        ..Default::default()
+    };
+
+    let mut bus: Bus = Bus::default();
+
+    let mapper = mappers::create_mapper(
+        0, // NROM 
+        bus.memory_mut(),
+        &vec![0u8; DataSizes::Size16K.to_bytes()],
+        &vec![0u8; DataSizes::Size8K.to_bytes()]
+        
+    ).unwrap();
+
+    bus.set_mapper(mapper);
+
+    let prg_data_size = bus.memory_mut().prg_data().len();
+
+    for _ in 0..1000 {
+        let old_random_pc = rng.random::<u16>();
+        let random_cpu_status = rng.random::<u8>() | (0b0000_0001 << UNUSED_FLAG);
+        let new_random_pc = rng.random::<u16>();
+
+        bus.memory_mut().prg_data_mut()[prg_data_size - 2] = new_random_pc as u8;
+        bus.memory_mut().prg_data_mut()[prg_data_size - 1] = (new_random_pc >> 8) as u8;
+
+        cpu.cpu_status = random_cpu_status;
+        cpu.program_counter = old_random_pc;
+        cpu.stack_pointer = 0xFF;
+
+        cpu.op_brk(&mut bus);
+
+        assert_eq!(cpu.program_counter, new_random_pc);
+        assert_eq!(cpu.stack_pointer, 0xFC);
+        assert_eq!(cpu.cpu_status, random_cpu_status | (0b0000_0001 << BREAK_FLAG));
+
+        cpu.op_rti(&bus);
+        assert_eq!(cpu.cpu_status, random_cpu_status | (0b0000_0001 << BREAK_FLAG));
+        assert_eq!(cpu.program_counter, old_random_pc);
+    }
+}
