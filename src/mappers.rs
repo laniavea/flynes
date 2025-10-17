@@ -23,9 +23,9 @@ impl Default for Mappers {
 
 #[enum_dispatch(Mappers)]
 pub trait MapperRW {
-    fn mapper_read(&self, req_addr: usize, prg_data: &[u8]) -> u8;
-    fn mapper_write(&self, req_addr: usize, value: u8, prg_data: &mut [u8]);
-    fn mapper_read_ppu(&self, data_ref: usize, chr_data: &[u8]) -> u8;
+    fn read(&self, req_addr: usize, prg_data: &[u8]) -> u8;
+    fn write(&self, req_addr: usize, value: u8, prg_data: &mut [u8]);
+    fn read_ppu(&self, data_ref: usize, chr_data: &[u8]) -> u8;
 }
 
 #[derive(Debug, Clone, Copy)]

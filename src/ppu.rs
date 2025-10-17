@@ -77,6 +77,18 @@ impl PpuCtrlSettings {
     }
 }
 
+impl PpuCtrlSettings {
+    fn base_nametables_addr_to_t_reg(&self) -> u16 {
+        match self.base_nametables_addr {
+            0x2000 => 0b0000_0000_0000_0000,
+            0x2400 => 0b0100_0000_0000_0000,
+            0x2800 => 0b1000_0000_0000_0000,
+            0x2C00 => 0b1100_0000_0000_0000,
+            _ => unreachable!("unreachable because of mod 4")
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PpuMaskSetting {
     emphasize_blue: bool,
@@ -144,10 +156,11 @@ pub struct Ppu {
     registers: [u8; 9],
     t_register: u16,
     write_toogle: bool,
+    x_scroll: u8,
+    y_scroll: u8,
     ctrl_settings: PpuCtrlSettings,
     render_settings: PpuMaskSetting,
-    ppu_status: PpuStatus
-
+    ppu_status: PpuStatus,
 }
 
 impl Ppu {
@@ -157,6 +170,8 @@ impl Ppu {
             PPU_CTRL_REG => {
                 self.registers[PPU_CTRL_REG] = data;
                 self.ctrl_settings.set(data);
+                self.t_register &= 0b0011_1111_1111_1111;
+                self.t_register |= self.ctrl_settings.base_nametables_addr_to_t_reg();
             },
             PPU_MASK_REG => {
                 self.registers[PPU_MASK_REG] = data;
@@ -170,9 +185,15 @@ impl Ppu {
                 self.registers[OAM_ADDR_REG] = data;
             },
             OAM_DATA_REG => {
+                self.registers[OAM_ADDR_REG] = self.registers[OAM_ADDR_REG].wrapping_add(1);
                 self.registers[OAM_DATA_REG] = data;
             },
             PPU_SCROLL_REG => {
+                if !self.write_toogle { // First write, w is 0 (false)
+                    self.x_scroll = data;
+                } else {
+                    self.y_scroll = data;
+                }
                 self.registers[PPU_SCROLL_REG] = data;
             },
             PPU_ADDR_REG => {

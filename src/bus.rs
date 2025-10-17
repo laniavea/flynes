@@ -1,7 +1,9 @@
 use better_assertions::inst_assert;
+use log::warn;
 
 use crate::memory::Memory;
 use crate::memory::{PPU_REGS_MIRRORS, APU_REGS, APU_IO_FUNC, PPU_REGS, RAM_MIRRORS, RAM, EXPANSION_ROM};
+use crate::memory::{PPU_PATTERN_TABLES, PPU_NAME_TABLES, PPU_UNUSED_SPACE, PPU_PALETTES};
 use crate::ppu::Ppu;
 use crate::mappers::{Mappers, MapperRW};
 
@@ -35,7 +37,7 @@ impl Bus {
 
         if requested_address > EXPANSION_ROM.start {
             inst_assert!((EXPANSION_ROM.start..=(u16::MAX as usize)).contains(&requested_address));
-            self.mapper.mapper_read(requested_address, self.memory.prg_data())
+            self.mapper.read(requested_address, self.memory.prg_data())
         } else if requested_address >= APU_REGS.start {
             inst_assert!((APU_REGS.start..=APU_IO_FUNC.end).contains(&requested_address));
             0 //FIX: Add APU and IO registers
@@ -63,7 +65,7 @@ impl Bus {
 
         if requested_address > EXPANSION_ROM.start {
             inst_assert!((EXPANSION_ROM.start..=(u16::MAX as usize)).contains(&requested_address));
-            self.mapper.mapper_write(requested_address, value, self.memory.prg_data_mut());
+            self.mapper.write(requested_address, value, self.memory.prg_data_mut());
         } else if requested_address >= APU_REGS.start {
             inst_assert!((APU_REGS.start..=APU_IO_FUNC.end).contains(&requested_address));
             //FIX: Add APU and IO registers
@@ -107,5 +109,30 @@ impl Bus {
         }
 
         self.read_16bit_cpu(requested_address)
+    }
+}
+
+impl Bus {
+    pub fn read_8bit_ppu<T>(&mut self, requested_address: T) -> u8
+    where 
+        T: Into<usize> + Copy
+    {
+        let requested_address: usize = requested_address.into();
+        inst_assert!(requested_address <= 0b0011_1111_1111_1111);
+
+        if requested_address < PPU_NAME_TABLES.start {
+            inst_assert!((PPU_PATTERN_TABLES.start..=PPU_PATTERN_TABLES.end).contains(&requested_address)); //TODO: PATTERN TABLES READ
+            self.mapper.read_ppu(requested_address, self.memory.chr_data())
+        } else if requested_address < PPU_UNUSED_SPACE.start {
+            inst_assert!((PPU_NAME_TABLES.start..=PPU_NAME_TABLES.end).contains(&requested_address)); //TODO: NAME_TABLES READ
+            self.memory.vram()[requested_address - PPU_NAME_TABLES.start]
+        } else if requested_address < PPU_PALETTES.start {
+            inst_assert!((PPU_UNUSED_SPACE.start..=PPU_UNUSED_SPACE.end).contains(&requested_address)); //TODO: UNUSED SPACE READ
+            warn!("Tried to read from PPU unused space");
+            0
+        } else {
+            inst_assert!((PPU_PALETTES.start..=PPU_PALETTES.end).contains(&requested_address)); //TODO: PPU_PALETTES READ
+            self.memory.palettes_table()[requested_address - PPU_PALETTES.start]
+        }
     }
 }

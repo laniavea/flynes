@@ -43,7 +43,7 @@ impl NROM {
 }
 
 impl MapperRW for NROM {
-    fn mapper_read(&self, data_ref: usize, prg_data: &[u8]) -> u8 {
+    fn read(&self, data_ref: usize, prg_data: &[u8]) -> u8 {
         inst_assert!((0x4020..=0xFFFF).contains(&data_ref));
 
         if data_ref >= PRG_RAM_HW_START + PRG_RAM_CAPACITY {
@@ -62,7 +62,7 @@ impl MapperRW for NROM {
         }
     }
 
-    fn mapper_write(&self, data_ref: usize, value: u8, prg_data: &mut [u8]) {
+    fn write(&self, data_ref: usize, value: u8, prg_data: &mut [u8]) {
         inst_assert!((0x4020..=0xFFFF).contains(&data_ref));
 
         if data_ref < PRG_RAM_HW_START {
@@ -79,7 +79,7 @@ impl MapperRW for NROM {
         prg_data[shifted_ref] = value;
     }
 
-    fn mapper_read_ppu(&self, data_ref: usize, chr_data: &[u8]) -> u8 {
+    fn read_ppu(&self, data_ref: usize, chr_data: &[u8]) -> u8 {
         inst_assert!((0x0000..=0x1FFF).contains(&data_ref));
 
         chr_data[data_ref]

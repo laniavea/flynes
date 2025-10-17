@@ -68,28 +68,28 @@ const ALL_COMP_MEMORY_SIZE: usize = RAM.size + PPU_REGS.size
 const STACK_END: usize = 0x0100;
 const STACK_START: usize = STACK_END + 0x00FF;
 
-const PPU_PATTERN_TABLES: MemoryAllocInfo = MemoryAllocInfo {
+pub const PPU_PATTERN_TABLES: MemoryAllocInfo = MemoryAllocInfo {
     start: 0x0000,
     end: 0x1FFF,
     size: 0x2000,
 };
 
-const PPU_NAME_TABLES: MemoryAllocInfo = MemoryAllocInfo {
+pub const PPU_NAME_TABLES: MemoryAllocInfo = MemoryAllocInfo {
     start: 0x2000,
-    end: 0x3EFF,
-    size: 0x1F00,
+    end: 0x2FFF,
+    size: 0x0FFF,
 };
 
-const PPU_PALETTES: MemoryAllocInfo = MemoryAllocInfo {
+pub const PPU_UNUSED_SPACE: MemoryAllocInfo = MemoryAllocInfo {
+    start: 0x3000,
+    end: 0x3EFF,
+    size: 0x0F00
+};
+
+pub const PPU_PALETTES: MemoryAllocInfo = MemoryAllocInfo {
     start: 0x3F00,
     end: 0x3F1F,
     size: 0x0020,
-};
-
-const _PPU_MIRRORS: MemoryAllocInfo = MemoryAllocInfo {
-    start: 0x4000,
-    end: 0xFFFF,
-    size: 0xB000,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -135,7 +135,7 @@ pub struct Memory {
     chr_data: Vec<u8>,
     ram: [u8; RAM.size],
     vram: [u8; PPU_NAME_TABLES.size],
-    palettes_ram: [u8; PPU_PALETTES.size]
+    palettes_table: [u8; PPU_PALETTES.size]
 }
 
 impl Default for Memory {
@@ -146,7 +146,7 @@ impl Default for Memory {
             chr_data: Vec::new(),
             ram: [0u8; RAM.size],
             vram: [0u8; PPU_NAME_TABLES.size],
-            palettes_ram: [0u8; PPU_PALETTES.size],
+            palettes_table: [0u8; PPU_PALETTES.size],
         }
     }
 }
@@ -158,14 +158,6 @@ impl Memory {
 }
 
 impl Memory {
-    pub fn ram(&self) -> &[u8; RAM.size] {
-        &self.ram
-    }
-
-    pub fn ram_mut(&mut self) -> &mut[u8; RAM.size] {
-        &mut self.ram
-    }
-
     pub fn prg_data(&self) -> &Vec<u8> {
         &self.prg_data
     }
@@ -180,6 +172,22 @@ impl Memory {
 
     pub fn chr_data_mut(&mut self) -> &mut Vec<u8> {
         &mut self.chr_data
+    }
+
+    pub fn ram(&self) -> &[u8; RAM.size] {
+        &self.ram
+    }
+
+    pub fn ram_mut(&mut self) -> &mut[u8; RAM.size] {
+        &mut self.ram
+    }
+
+    pub fn vram(&self) -> &[u8; PPU_NAME_TABLES.size] {
+        &self.vram
+    }
+    
+    pub fn palettes_table(&self) -> &[u8; PPU_PALETTES.size] {
+        &self.palettes_table
     }
 }
 
@@ -318,7 +326,7 @@ fn test_stack_push_pull() {
         chr_data: Vec::new(),
         ram: [0u8; RAM.size],
         vram: [0u8; PPU_NAME_TABLES.size],
-        palettes_ram: [0u8; PPU_PALETTES.size],
+        palettes_table: [0u8; PPU_PALETTES.size],
     };
 
     let mut cpu: Cpu = Cpu::default();
