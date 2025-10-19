@@ -87,6 +87,10 @@ impl PpuCtrlSettings {
             _ => unreachable!("unreachable because of mod 4")
         }
     }
+    
+    fn vram_address_inc(&self) -> u16 {
+        self.vram_address_inc
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -151,9 +155,10 @@ impl PpuStatus {
 }
 
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct Ppu {
     registers: [u8; 9],
+    oam_data: [u8; 256],
     t_register: u16,
     write_toogle: bool,
     x_scroll: u8,
@@ -161,6 +166,22 @@ pub struct Ppu {
     ctrl_settings: PpuCtrlSettings,
     render_settings: PpuMaskSetting,
     ppu_status: PpuStatus,
+}
+
+impl Default for Ppu {
+    fn default() -> Self {
+        Self {
+            registers: [0u8; 9],
+            oam_data: [0u8; 256],
+            t_register: 0,
+            write_toogle: false,
+            x_scroll: 0,
+            y_scroll: 0,
+            ctrl_settings: PpuCtrlSettings::default(),
+            render_settings: PpuMaskSetting::default(),
+            ppu_status: PpuStatus::default(),
+        }
+    }
 }
 
 impl Ppu {
@@ -191,6 +212,7 @@ impl Ppu {
             PPU_SCROLL_REG => {
                 if !self.write_toogle { // First write, w is 0 (false)
                     self.x_scroll = data;
+                    self.write_toogle = true;
                 } else {
                     self.y_scroll = data;
                 }
@@ -198,7 +220,8 @@ impl Ppu {
             },
             PPU_ADDR_REG => {
                 if !self.write_toogle { // First write, w is 0 (false)
-                    self.t_register = ((data & 0b0011_1111) as u16) << 8;
+                    self.t_register &= 0b1000_0000_0000_0000;
+                    self.t_register |= ((data & 0b0011_1111) as u16) << 8;
                     self.write_toogle = true;
                 } else {
                     self.t_register += data as u16;
@@ -208,6 +231,7 @@ impl Ppu {
             },
             PPU_DATA_REG => {
                 self.registers[register] = data;
+                self.t_register = self.t_register.wrapping_add(self.ctrl_settings.vram_address_inc)
             },
             OAM_DMA_REG => {
                 self.registers[register] = data;
@@ -226,13 +250,16 @@ impl Ppu {
             },
             PPU_STATUS_REG => {
                 self.write_toogle = false;
+                let ppu_status_state = self.ppu_status.value;
+                self.ppu_status.clear_v_blank();
                 self.registers[PPU_STATUS_REG] = self.ppu_status.value;
-                self.registers[PPU_STATUS_REG]
+                ppu_status_state
             },
             OAM_DATA_REG => {
                 self.registers[OAM_DATA_REG]
             },
             PPU_DATA_REG => {
+                self.t_register = self.t_register.wrapping_add(self.ctrl_settings.vram_address_inc);
                 self.registers[PPU_DATA_REG]
             },
             _ => unreachable!("No more registers")
