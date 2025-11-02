@@ -12,6 +12,7 @@ pub struct Bus {
     memory: Memory,
     ppu: Ppu,
     mapper: Mappers,
+    cpu_cycles_num: usize,
 }
 
 impl Bus {
@@ -134,5 +135,11 @@ impl Bus {
             inst_assert!((PPU_PALETTES.start..=PPU_PALETTES.end).contains(&requested_address)); //TODO: PPU_PALETTES READ
             self.memory.palettes_table()[requested_address - PPU_PALETTES.start]
         }
+    }
+}
+
+impl Bus {
+    pub fn execute_modules(&mut self) {
+
     }
 }

@@ -23,7 +23,7 @@ fn main() {
 fn temp_unit() {
     let mut cpu_unit = cpu::Cpu::default();
     info!("CPU unit initializated");
-    let mut bus = bus::Bus::default();
+    let mut bus_unit = bus::Bus::default();
     info!("Bus unit initializated");
 
     use rand;
@@ -34,23 +34,16 @@ fn temp_unit() {
 
     commands[0x0000] = 0xA9;
     commands[0x0001] = 0xA9;
-    cartridges::load_raw_commands(&mut bus, commands);
+    cartridges::load_raw_commands(&mut bus_unit, commands);
 
-    cpu_unit.init_pc(&mut bus);
-
-    use std::time::Instant;
-    let t = Instant::now();
-
-    cpu_unit.run_cpu(&mut bus);
-
-    let tt = t.elapsed();
-    println!("Elapsed {tt:?}");
+    cpu_unit.init_pc(&mut bus_unit);
+    run_cpu_measure_time(&mut cpu_unit, &mut bus_unit)
 }
 
 fn test_rom() {
     let (
         mut cpu_unit,
-        mut memory_unit
+        mut bus_unit
     ) = match cartridges::read_nes_file("./roms/nestest.nes".into()) {
         Ok(modules) => modules,
         Err(err) => {
@@ -62,5 +55,16 @@ fn test_rom() {
 
     cpu_unit.set_pc(0xC000);
 
-    cpu_unit.run_cpu(&mut memory_unit);
+    run_cpu_measure_time(&mut cpu_unit, &mut bus_unit)
+    // cpu_unit.run_cpu(&mut bus_unit);
+}
+
+fn run_cpu_measure_time(cpu_unit: &mut cpu::Cpu, bus: &mut bus::Bus) {
+    use std::time::Instant;
+    let t = Instant::now();
+
+    cpu_unit.run_cpu(bus);
+
+    let tt = t.elapsed();
+    println!("Elapsed {tt:?}");
 }

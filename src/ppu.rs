@@ -14,6 +14,30 @@ const PPU_DATA_REG: usize = 7;
 const OAM_DMA_REG: usize = 8;
 
 #[derive(Debug, Clone, Copy)]
+pub enum PpuRenderStatus {
+    NmiTrigger,
+    EndOfFrame,
+}
+
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
+pub enum MirroringType {
+    None,
+    Horizontal,
+    Vertical,
+}
+
+impl MirroringType {
+    pub fn from_bool(input_bool_status: bool) -> MirroringType {
+        if input_bool_status {
+            MirroringType::Vertical
+        } else {
+            MirroringType::Horizontal
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct PpuCtrlSettings {
     v_blank_nmi: bool,
     master_slave_mode: bool,
@@ -21,7 +45,7 @@ pub struct PpuCtrlSettings {
     bg_addr: u16,
     sprite_pt_address: u16,
     vram_address_inc: u16,
-    base_nametables_addr: u16,
+    base_nametables_addr: u8,
 }
 
 impl Default for PpuCtrlSettings {
@@ -33,7 +57,7 @@ impl Default for PpuCtrlSettings {
             bg_addr: 0x0000,
             sprite_pt_address: 0x0000,
             vram_address_inc: 1,
-            base_nametables_addr: 0x2000,
+            base_nametables_addr: 0,
         }
     }
 }
@@ -67,29 +91,13 @@ impl PpuCtrlSettings {
             1
         };
 
-        self.base_nametables_addr = match settings % 4 {
-            0 => 0x2000, // ...00
-            1 => 0x2400, // ...01
-            2 => 0x2800, // ...10
-            3 => 0x2C00, // ...11
-            _ => unreachable!("unreachable because of mod 4")
-        };
+        self.base_nametables_addr = settings % 4;
     }
 }
 
 impl PpuCtrlSettings {
     fn base_nametables_addr_to_t_reg(&self) -> u16 {
-        match self.base_nametables_addr {
-            0x2000 => 0b0000_0000_0000_0000,
-            0x2400 => 0b0100_0000_0000_0000,
-            0x2800 => 0b1000_0000_0000_0000,
-            0x2C00 => 0b1100_0000_0000_0000,
-            _ => unreachable!("unreachable because of mod 4")
-        }
-    }
-    
-    fn vram_address_inc(&self) -> u16 {
-        self.vram_address_inc
+        (self.base_nametables_addr as u16) << 14
     }
 }
 
@@ -157,6 +165,10 @@ impl PpuStatus {
 
 #[derive(Debug, Clone)]
 pub struct Ppu {
+    scanline: u16,
+    cycles_per_scanline: u16,
+    cycles: usize,
+    render_status: Option<PpuRenderStatus>,
     registers: [u8; 9],
     oam_data: [u8; 256],
     t_register: u16,
@@ -166,11 +178,16 @@ pub struct Ppu {
     ctrl_settings: PpuCtrlSettings,
     render_settings: PpuMaskSetting,
     ppu_status: PpuStatus,
+    mirroring: MirroringType,
 }
 
 impl Default for Ppu {
     fn default() -> Self {
         Self {
+            scanline: 0,
+            cycles_per_scanline: 0,
+            cycles: 0,
+            render_status: None,
             registers: [0u8; 9],
             oam_data: [0u8; 256],
             t_register: 0,
@@ -180,6 +197,7 @@ impl Default for Ppu {
             ctrl_settings: PpuCtrlSettings::default(),
             render_settings: PpuMaskSetting::default(),
             ppu_status: PpuStatus::default(),
+            mirroring: MirroringType::None,
         }
     }
 }
@@ -263,6 +281,51 @@ impl Ppu {
                 self.registers[PPU_DATA_REG]
             },
             _ => unreachable!("No more registers")
+        }
+    }
+}
+
+impl Ppu {
+    pub fn nametable_mirroring(&mut self, vram_address: u16) -> u16 {
+        match self.mirroring {
+            MirroringType::None => unreachable!("Default value, should be overritten"),
+            MirroringType::Horizontal => {
+                if self.ctrl_settings.base_nametables_addr % 2 == 1 {
+                    vram_address - 0x0400
+                } else {
+                    vram_address
+                }
+            },
+            MirroringType::Vertical => {
+                if self.ctrl_settings.base_nametables_addr >= 2 {
+                    vram_address - 0x0800
+                } else {
+                    vram_address
+                }
+            }
+        }
+    }
+}
+
+impl Ppu {
+    pub fn execute_cycles(&mut self, cycles_num: usize) {
+        let end_cycle = self.cycles + cycles_num;
+        while self.cycles < end_cycle {
+            if self.cycles_per_scanline >= 341 {
+                self.cycles_per_scanline = 0;
+                self.scanline += 1;
+
+                if self.scanline == 241 {
+                    self.render_status = Some(PpuRenderStatus::NmiTrigger);
+
+                } else if self.scanline >= 262 {
+                    self.render_status = Some(PpuRenderStatus::EndOfFrame);
+                    self.scanline = 0;
+                }
+
+            }
+
+            self.cycles += 1;
         }
     }
 }

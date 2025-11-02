@@ -8,6 +8,7 @@ use crate::cpu::Cpu;
 use crate::bus::Bus;
 use crate::mappers;
 use crate::common::DataSizes;
+use crate::ppu::MirroringType;
 
 const PRGROM_BYTES_IN_UNITS: usize = DataSizes::Size16K.to_bytes();
 const CHRROM_BYTES_IN_UNITS: usize = DataSizes::Size8K.to_bytes();
@@ -36,26 +37,10 @@ impl std::fmt::Display for NesCartridgeError {
 
 impl std::error::Error for NesCartridgeError {}
 
-#[repr(u8)]
-#[derive(Debug, Clone, Copy)]
-enum MirroringType {
-    Horizontal,
-    Vertical,
-}
-
-impl MirroringType {
-    fn from_bool(input_bool_status: bool) -> MirroringType {
-        if input_bool_status {
-            MirroringType::Vertical
-        } else {
-            MirroringType::Horizontal
-        }
-    }
-}
-
 impl std::fmt::Display for MirroringType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
+            Self::None => write!(f, "None"),
             Self::Horizontal => write!(f, "Horizontal"),
             Self::Vertical => write!(f, "Vertical"),
         }

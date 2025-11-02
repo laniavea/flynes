@@ -164,18 +164,31 @@ impl Cpu {
 }
 
 impl Cpu {
+    #[inline]
+    fn read_8bit(&mut self, bus: &mut Bus, data_ref: u16) -> u8 {
+        bus.read_8bit_cpu(data_ref)
+    }
+
+    #[inline]
+    fn write_8bit(&mut self, bus: &mut Bus, data_ref: u16, data_value: u8) {
+        bus.write_8bit_cpu(data_ref, data_value);
+    }
+}
+
+impl Cpu {
     pub fn run_cpu(&mut self, bus: &mut Bus) {
         debug!("Running CPU with next PC: {}", common::number_to_hex(self.program_counter, true));
 
-        let max_number_of_operations = 10_000;
+        let max_number_of_operations = 100_000_000;
         let mut now_oper: usize = 0;
 
         while now_oper < max_number_of_operations {
             match self.execute_cpu_iteration(bus) {
                 Ok(_) => now_oper += 1,
                 Err(err_msg) => {
-                    error!("Error while CPU execution: {err_msg}");
-                    break
+                    self.set_pc(0xC000);
+                    // error!("Error while CPU execution: {err_msg}");
+                    // break
                 }
             }
         }

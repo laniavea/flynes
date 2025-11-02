@@ -1,6 +1,8 @@
 use better_assertions::inst_assert_eq;
 use log::warn;
 
+use crate::common::DataSizes;
+
 pub struct MemoryAllocInfo {
     pub start: usize,
     pub end: usize,
@@ -77,7 +79,7 @@ pub const PPU_PATTERN_TABLES: MemoryAllocInfo = MemoryAllocInfo {
 pub const PPU_NAME_TABLES: MemoryAllocInfo = MemoryAllocInfo {
     start: 0x2000,
     end: 0x2FFF,
-    size: 0x0FFF,
+    size: 0x1000,
 };
 
 pub const PPU_UNUSED_SPACE: MemoryAllocInfo = MemoryAllocInfo {
@@ -134,7 +136,7 @@ pub struct Memory {
     prg_data: Vec<u8>,
     chr_data: Vec<u8>,
     ram: [u8; RAM.size],
-    vram: [u8; PPU_NAME_TABLES.size],
+    vram: [u8; DataSizes::Size2K.to_bytes()],
     palettes_table: [u8; PPU_PALETTES.size]
 }
 
@@ -145,7 +147,7 @@ impl Default for Memory {
             prg_data: Vec::new(),
             chr_data: Vec::new(),
             ram: [0u8; RAM.size],
-            vram: [0u8; PPU_NAME_TABLES.size],
+            vram: [0u8; DataSizes::Size2K.to_bytes()],
             palettes_table: [0u8; PPU_PALETTES.size],
         }
     }
@@ -182,7 +184,7 @@ impl Memory {
         &mut self.ram
     }
 
-    pub fn vram(&self) -> &[u8; PPU_NAME_TABLES.size] {
+    pub fn vram(&self) -> &[u8; DataSizes::Size2K.to_bytes()] {
         &self.vram
     }
     
@@ -325,7 +327,7 @@ fn test_stack_push_pull() {
         prg_data: Vec::new(),
         chr_data: Vec::new(),
         ram: [0u8; RAM.size],
-        vram: [0u8; PPU_NAME_TABLES.size],
+        vram: [0u8; DataSizes::Size2K.to_bytes()],
         palettes_table: [0u8; PPU_PALETTES.size],
     };
 
