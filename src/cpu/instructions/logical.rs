@@ -6,25 +6,25 @@ use crate::cpu::instructions::shared_ops::{update_zero_and_neg_flags, set_flag, 
 impl Cpu {
     /// Perfomrs logical AND between register A and data, result saved in reg A
     pub fn op_and(&mut self, bus: &mut Bus, data_ref: u16) {
-        self.reg_a &= bus.read_8bit_cpu(data_ref);
+        self.reg_a &= self.read_8bit(bus, data_ref);
         update_zero_and_neg_flags(&mut self.cpu_status, self.reg_a);
     }
 
     /// Perfomrs logical XOR between register A and data, result saved in reg A
     pub fn op_eor(&mut self, bus: &mut Bus, data_ref: u16) {
-        self.reg_a ^= bus.read_8bit_cpu(data_ref);
+        self.reg_a ^= self.read_8bit(bus, data_ref);
         update_zero_and_neg_flags(&mut self.cpu_status, self.reg_a);
     }
 
     /// Performs logical OR between register A and data, result saved in reg A
     pub fn op_ora(&mut self, bus: &mut Bus, data_ref: u16) {
-        self.reg_a |= bus.read_8bit_cpu(data_ref);
+        self.reg_a |= self.read_8bit(bus, data_ref);
         update_zero_and_neg_flags(&mut self.cpu_status, self.reg_a);
     }
 
     /// Performs logical AND between register A and data, affects only to cpu status
     pub fn op_bit(&mut self, bus: &mut Bus, data_ref: u16) {
-        let read_data = bus.read_8bit_cpu(data_ref);
+        let read_data = self.read_8bit(bus, data_ref);
         set_flag(&mut self.cpu_status, ZERO_FLAG, (read_data & self.reg_a) == 0);
         transfer_bit(&mut self.cpu_status, &read_data, OVERFLOW_FLAG);
         transfer_bit(&mut self.cpu_status, &read_data, NEGATIVE_FLAG);
@@ -53,12 +53,12 @@ fn test_logical_operations() {
         let random_st = rng.random::<u8>();
 
         cpu.reg_a = random_v;
-        bus.write_8bit_cpu(0x0000u16, 0b0000_0000);
-        bus.write_8bit_cpu(0x0001u16, 0b1111_1111);
-        bus.write_8bit_cpu(0x0002u16, !random_v);
+        cpu.write_8bit(&mut bus, 0x0000u16, 0b0000_0000);
+        cpu.write_8bit(&mut bus, 0x0001u16, 0b1111_1111);
+        cpu.write_8bit(&mut bus, 0x0002u16, !random_v);
 
         let other_random_v = rng.random::<u8>();
-        bus.write_8bit_cpu(0x0003u16, other_random_v);
+        cpu.write_8bit(&mut bus, 0x0003u16, other_random_v);
 
         cpu.op_ora(&mut bus, 0x0000);
         test_zero_and_neg(cpu.cpu_status, cpu.reg_a);

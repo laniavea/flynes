@@ -1,10 +1,12 @@
 use better_assertions::{inst_assert_eq, fast_assert};
-use log::{trace, debug, info, error};
+use log::{trace, debug, info, warn, error};
 
 use crate::memory::MemoryType;
 use crate::bus::Bus;
 use crate::common;
 use instructions::{Operation, CPUInstByte};
+
+const RESET_ON_CPU_EXEC_ERR: bool = true;
 
 pub mod instructions;
 
@@ -36,6 +38,7 @@ pub struct Cpu {
     program_counter: u16,
     instruction_set: &'static [Operation; 256],
     state: CpuState,
+    exec_cycles: usize,
 }
 
 impl Default for Cpu {
@@ -54,13 +57,14 @@ impl Default for Cpu {
             program_counter: 0xFFFF,
             instruction_set: &INSTRUCTION_SET,
             state: CpuState::Running,
+            exec_cycles: 0,
         }
     }
 }
 
 impl Cpu {
     pub fn init_pc(&mut self, bus: &mut Bus) {
-        let exec_pc = bus.read_16bit_cpu(0xFFFC);
+        let exec_pc = self.read_16bit(bus, 0xFFFC);
         self.program_counter = exec_pc;
         debug!("Initialized PC: {}", common::number_to_hex(exec_pc, true))
     }
@@ -96,7 +100,7 @@ impl Cpu {
 }
 
 impl Cpu {
-    pub fn conv_1byte_address(&self, mt: MemoryType, value: u8, bus: &mut Bus) -> u16 {
+    pub fn conv_1byte_address(&mut self, mt: MemoryType, value: u8, bus: &mut Bus) -> u16 {
         fast_assert!([
             MemoryType::Immediate,
             MemoryType::ZeroPage,
@@ -127,17 +131,17 @@ impl Cpu {
             },
             MemoryType::IndirectX => {
                 let value = value.wrapping_add(self.reg_x);
-                bus.read_16bit_cpu_zp_wrap(value as u16)
+                self.read_16bit_zp_wrap(bus, value as u16)
             },
             MemoryType::IndirectY => {
-                let value_data = bus.read_16bit_cpu_zp_wrap(value as u16);
+                let value_data = self.read_16bit_zp_wrap(bus, value as u16);
                 value_data.wrapping_add(self.reg_y as u16)
             },
             _ => unreachable!(),
         }
     }
 
-    pub fn conv_2byte_address(&self, mt: MemoryType, value: u16, bus: &mut Bus) -> u16 {
+    pub fn conv_2byte_address(&mut self, mt: MemoryType, value: u16, bus: &mut Bus) -> u16 {
         fast_assert!([
             MemoryType::Absolute,
             MemoryType::AbsoluteX,
@@ -150,7 +154,7 @@ impl Cpu {
                 value
             },
             MemoryType::Indirect => {
-                bus.read_16bit_cpu_jmp_bug(value)
+                self.read_16bit_jmp_bug(bus, value)
             },
             MemoryType::AbsoluteX => {
                 value.wrapping_add(self.reg_x as u16)
@@ -164,14 +168,47 @@ impl Cpu {
 }
 
 impl Cpu {
-    #[inline]
-    fn read_8bit(&mut self, bus: &mut Bus, data_ref: u16) -> u8 {
-        bus.read_8bit_cpu(data_ref)
+    #[inline(always)]
+    pub fn read_8bit<T>(&mut self, bus: &mut Bus, data_ref: T) -> u8
+    where 
+        T: Into<usize> + Copy
+    {
+        bus.read_8bit_cpu(data_ref, &self.exec_cycles)
     }
 
-    #[inline]
-    fn write_8bit(&mut self, bus: &mut Bus, data_ref: u16, data_value: u8) {
-        bus.write_8bit_cpu(data_ref, data_value);
+    #[inline(always)]
+    pub fn write_8bit<T>(&mut self, bus: &mut Bus, data_ref: T, data_value: u8)
+    where 
+        T: Into<usize> + Copy
+    {
+        bus.write_8bit_cpu(data_ref, data_value, &self.exec_cycles);
+    }
+
+    pub fn read_16bit(&mut self, bus: &mut Bus, requested_address: u16) -> u16 {
+        let requested_byte = self.read_8bit(bus, requested_address);
+        let next_byte = self.read_8bit(bus, requested_address.wrapping_add(1));
+
+        ((next_byte as u16) << 8) + (requested_byte as u16)
+    }
+
+    pub fn read_16bit_zp_wrap(&mut self, bus: &mut Bus, requested_address: u16) -> u16 {
+        if requested_address == 0x00FF {
+            let first_byte = self.read_8bit(bus, 0x0000usize) as u16;
+            let second_byte = self.read_8bit(bus, 0x00FFusize) as u16;
+            return (first_byte << 8) + second_byte;
+        }
+
+        self.read_16bit(bus, requested_address)
+    }
+
+    pub fn read_16bit_jmp_bug(&mut self, bus: &mut Bus, requested_address: u16) -> u16 {
+        if requested_address & 0x00FF == 0x00FF {
+            let first_byte = self.read_8bit(bus, requested_address & 0xFF00) as u16;
+            let second_byte = self.read_8bit(bus, requested_address) as u16;
+            return (first_byte << 8) + second_byte;
+        }
+
+        self.read_16bit(bus, requested_address)
     }
 }
 
@@ -186,9 +223,13 @@ impl Cpu {
             match self.execute_cpu_iteration(bus) {
                 Ok(_) => now_oper += 1,
                 Err(err_msg) => {
-                    self.set_pc(0xC000);
-                    // error!("Error while CPU execution: {err_msg}");
-                    // break
+                    if RESET_ON_CPU_EXEC_ERR {
+                        warn!("RESET ON ERROR: {err_msg}");
+                        self.set_pc(0xC000);
+                    } else {
+                        error!("Error while CPU execution: {err_msg}");
+                        break
+                    }
                 }
             }
         }
@@ -198,7 +239,7 @@ impl Cpu {
 
     /// CHANGE ALSO execute_cpu_iteration_info
     pub fn execute_cpu_iteration(&mut self, bus: &mut Bus) -> Result<u8, &'static str> {
-        let now_command = bus.read_8bit_cpu(self.program_counter);
+        let now_command = self.read_8bit(bus, self.program_counter);
         let now_inst = self.instruction_set[now_command as usize];
         trace!("CPU got command: {}, instruction: {now_inst}", common::number_to_hex(now_command, true));
         trace!(
@@ -218,7 +259,7 @@ impl Cpu {
             },
             CPUInstByte::Two(inst_entry) => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                let next_data_byte = bus.read_8bit_cpu(self.program_counter);
+                let next_data_byte = self.read_8bit(bus, self.program_counter);
                 let target_byte = self.conv_1byte_address(now_inst.memory_type(), next_data_byte, bus);
                 trace!("Current data value: {}", common::number_to_hex(target_byte, true));
                 self.program_counter = self.program_counter.wrapping_add(1);
@@ -226,7 +267,7 @@ impl Cpu {
             },
             CPUInstByte::Three(inst_entry) => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                let next_value = bus.read_16bit_cpu(self.program_counter);
+                let next_value = self.read_16bit(bus, self.program_counter);
                 let target_address = self.conv_2byte_address(now_inst.memory_type(), next_value, bus);
                 trace!("Address:{} -> {}",common::number_to_hex(next_value, true), common::number_to_hex(target_address, true));
                 self.program_counter = self.program_counter.wrapping_add(2);
@@ -247,7 +288,7 @@ impl Cpu {
 
     /// CHANGE ALSO execute_cpu_iteration
     pub fn execute_cpu_iteration_info(&mut self, bus: &mut Bus) -> Result<(Operation, Vec<u8>), &'static str> {
-        let now_command = bus.read_8bit_cpu(self.program_counter);
+        let now_command = self.read_8bit(bus, self.program_counter);
         let now_inst = self.instruction_set[now_command as usize];
         let mut fetched_bytes: Vec<u8> = Vec::new();
         fetched_bytes.push(now_command);
@@ -269,7 +310,7 @@ impl Cpu {
             },
             CPUInstByte::Two(inst_entry) => {
                 self.program_counter = self.program_counter.wrapping_add(1);
-                let next_data_byte = bus.read_8bit_cpu(self.program_counter);
+                let next_data_byte = self.read_8bit(bus, self.program_counter);
                 fetched_bytes.push(next_data_byte);
                 let target_byte = self.conv_1byte_address(now_inst.memory_type(), next_data_byte, bus);
                 trace!("Current data value: {}", common::number_to_hex(target_byte, true));
@@ -277,10 +318,10 @@ impl Cpu {
                 self.execute_inst_2_byte(bus, inst_entry, target_byte);
             },
             CPUInstByte::Three(inst_entry) => {
-                fetched_bytes.push(bus.read_8bit_cpu(self.program_counter.wrapping_add(1)));
-                fetched_bytes.push(bus.read_8bit_cpu(self.program_counter.wrapping_add(2)));
+                fetched_bytes.push(self.read_8bit(bus, self.program_counter.wrapping_add(1)));
+                fetched_bytes.push(self.read_8bit(bus, self.program_counter.wrapping_add(2)));
                 self.program_counter = self.program_counter.wrapping_add(1);
-                let next_value = bus.read_16bit_cpu(self.program_counter);
+                let next_value = self.read_16bit(bus, self.program_counter);
                 let target_address = self.conv_2byte_address(now_inst.memory_type(), next_value, bus);
                 trace!("Address:{} -> {}",common::number_to_hex(next_value, true), common::number_to_hex(target_address, true));
                 self.program_counter = self.program_counter.wrapping_add(2);

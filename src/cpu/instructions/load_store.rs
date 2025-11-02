@@ -5,35 +5,35 @@ use crate::cpu::instructions::shared_ops::update_zero_and_neg_flags;
 impl Cpu {
     /// Sets memory value to register A, updates Zero and Neg flags
     pub fn op_lda(&mut self, bus: &mut Bus, data_ref: u16) {
-        self.reg_a = bus.read_8bit_cpu(data_ref);
+        self.reg_a = self.read_8bit(bus, data_ref);
         update_zero_and_neg_flags(&mut self.cpu_status, self.reg_a)
     }
 
     /// Sets memory value to register X, updates Zero and Neg flags
     pub fn op_ldx(&mut self, bus: &mut Bus, data_ref: u16) {
-        self.reg_x = bus.read_8bit_cpu(data_ref);
+        self.reg_x = self.read_8bit(bus, data_ref);
         update_zero_and_neg_flags(&mut self.cpu_status, self.reg_x)
     }
 
     /// Sets memory value to register Y, updates Zero and Neg flags
     pub fn op_ldy(&mut self, bus: &mut Bus, data_ref: u16) {
-        self.reg_y = bus.read_8bit_cpu(data_ref);
+        self.reg_y = self.read_8bit(bus, data_ref);
         update_zero_and_neg_flags(&mut self.cpu_status, self.reg_y)
     }
 
     /// Sets value of register A to memory
     pub fn op_sta(&mut self, bus: &mut Bus, data_ref: u16) {
-        bus.write_8bit_cpu(data_ref, self.reg_a);
+        self.write_8bit(bus, data_ref, self.reg_a);
     }
 
     /// Sets value of register X to memory
     pub fn op_stx(&mut self, bus: &mut Bus, data_ref: u16) {
-        bus.write_8bit_cpu(data_ref, self.reg_x);
+        self.write_8bit(bus, data_ref, self.reg_x);
     }
 
     /// Sets value of register Y to memory
     pub fn op_sty(&mut self, bus: &mut Bus, data_ref: u16) {
-        bus.write_8bit_cpu(data_ref, self.reg_y);
+        self.write_8bit(bus, data_ref, self.reg_y);
     }
 }
 
@@ -63,7 +63,7 @@ fn test_load_store_ops() {
 
     for now_value in (0..OFFSET).rev() {
         let now_v: u8 = now_value.try_into().unwrap();
-        bus.write_8bit_cpu(RAM.end,now_v);
+        cpu.write_8bit(&mut bus, RAM.end, now_v);
         let random_v = rng.random::<u8>();
 
         cpu.reg_a = now_v.wrapping_add(10);

@@ -11,7 +11,7 @@ impl Cpu {
         // Set carry if result < reg_a -> reg_a + data > 255
         // A + M + C
 
-        let read_data = bus.read_8bit_cpu(data_ref);
+        let read_data = self.read_8bit(bus, data_ref);
         self.reg_a = if is_flag_set(&self.cpu_status, CARRY_FLAG) {
             let temp_val = self.reg_a.wrapping_add(read_data).wrapping_add(1);
             let over_fl_st = (self.reg_a^temp_val) & (read_data^temp_val) & 0b1000_0000 != 0;
@@ -38,7 +38,7 @@ impl Cpu {
         // Set carry if result < reg_a -> reg_a + data > 255
         // A - M - (C - 1)
 
-        let read_data = bus.read_8bit_cpu(data_ref);
+        let read_data = self.read_8bit(bus, data_ref);
         self.reg_a = if is_flag_set(&self.cpu_status, CARRY_FLAG) {
             let temp_val = self.reg_a.wrapping_sub(read_data);
             let over_fl_st = (self.reg_a^temp_val) & ((0b1111_1111 - read_data)^temp_val) & 0b1000_0000 != 0;
@@ -61,7 +61,7 @@ impl Cpu {
     /// Compares memory with register A, changes cpu status
     /// Possible operation HEX: 0xC9, 0xC5, 0xD5, 0xCD, 0xDD, 0xD9, 0xC1, 0xD1
     pub fn op_cmp(&mut self, bus: &mut Bus, data_ref: u16) {
-        let read_data = bus.read_8bit_cpu(data_ref);
+        let read_data = self.read_8bit(bus, data_ref);
         set_flag(&mut self.cpu_status, CARRY_FLAG, self.reg_a >= read_data);
         let temp_res = self.reg_a.wrapping_sub(read_data);
         update_zero_and_neg_flags(&mut self.cpu_status, temp_res);
@@ -70,7 +70,7 @@ impl Cpu {
     /// Compares memory with register X, changes cpu status
     /// Possible operation HEX: 0xE0, 0xE4, 0xEC
     pub fn op_cpx(&mut self, bus: &mut Bus, data_ref: u16) {
-        let read_data = bus.read_8bit_cpu(data_ref);
+        let read_data = self.read_8bit(bus, data_ref);
         set_flag(&mut self.cpu_status, CARRY_FLAG, self.reg_x >= read_data);
         let temp_res = self.reg_x.wrapping_sub(read_data);
         update_zero_and_neg_flags(&mut self.cpu_status, temp_res);
@@ -79,7 +79,7 @@ impl Cpu {
     /// Compares memory with register Y, changes cpu status
     /// Possible operation HEX: 0xC0, 0xC4, 0xCC
     pub fn op_cpy(&mut self, bus: &mut Bus, data_ref: u16) {
-        let read_data = bus.read_8bit_cpu(data_ref);
+        let read_data = self.read_8bit(bus, data_ref);
         set_flag(&mut self.cpu_status, CARRY_FLAG, self.reg_y >= read_data);
         let temp_res = self.reg_y.wrapping_sub(read_data);
         update_zero_and_neg_flags(&mut self.cpu_status, temp_res);
@@ -120,7 +120,7 @@ fn test_arithmetic() {
     // ADC #$FF
     let adc_values: [u8; 10] = [0x90, 0x20, 0x50, 0x6F, 0xFF, 0x7F, 0x00, 0x80, 0x01, 0xFF];
     for (now_value_id, now_value) in adc_values.iter().enumerate() {
-        bus.write_8bit_cpu(now_value_id as u16, *now_value);
+        cpu.write_8bit(&mut bus, now_value_id as u16, *now_value)
     }
 
     cpu.reg_a = 0x90;
@@ -169,7 +169,7 @@ fn test_arithmetic() {
 
     let sbc_values: [u8; 15] = [0x64, 0x9B, 0x01, 0xFC, 0x02, 0x80, 0x80, 0xFF, 0xFD, 0x00, 0xFF, 0x00, 0x00, 0x01, 0x7F];
     for (now_value_id, now_value) in sbc_values.iter().enumerate() {
-        bus.write_8bit_cpu(now_value_id as u16, *now_value);
+        cpu.write_8bit(&mut bus, now_value_id as u16, *now_value)
     }
     cpu.cpu_status = 0b0000_0000;
     cpu.reg_a = 0x0;
@@ -219,7 +219,7 @@ fn test_arithmetic() {
         let random_v = rng.random::<u8>();
         let random_st = rng.random::<u8>();
 
-        bus.write_8bit_cpu(0x0000u16, random_v);
+        cpu.write_8bit(&mut bus, 0x0000u16, random_v);
 
         cpu.cpu_status = random_st;
         cpu.op_cmp(&mut bus, 0x0000);

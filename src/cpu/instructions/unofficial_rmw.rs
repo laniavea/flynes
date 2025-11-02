@@ -6,8 +6,8 @@ use crate::cpu::instructions::shared_ops::{set_flag, update_zero_and_neg_flags};
 impl Cpu {
     /// DCP / DCM operations; Subtract 1 from memory (without borrow) then compare
     pub fn op_dcp(&mut self, bus: &mut Bus, data_ref: u16) {
-        let read_data = bus.read_8bit_cpu(data_ref).wrapping_sub(1);
-        bus.write_8bit_cpu(data_ref, read_data);
+        let read_data = self.read_8bit(bus, data_ref).wrapping_sub(1);
+        self.write_8bit(bus, data_ref, read_data);
         set_flag(&mut self.cpu_status, CARRY_FLAG, self.reg_a >= read_data);
         let temp_res = self.reg_a.wrapping_sub(read_data);
         update_zero_and_neg_flags(&mut self.cpu_status, temp_res);
@@ -15,15 +15,15 @@ impl Cpu {
 
     /// ISC / ISB / INS operations; Add 1 from memory (without borrow) then SBC
     pub fn op_isc(&mut self, bus: &mut Bus, data_ref: u16) {
-        let read_data = bus.read_8bit_cpu(data_ref).wrapping_add(1);
-        bus.write_8bit_cpu(data_ref, read_data);
+        let read_data = self.read_8bit(bus, data_ref).wrapping_add(1);
+        self.write_8bit(bus, data_ref, read_data);
         self.op_sbc(bus, data_ref);
     }
 
     /// RLA operations; ROL and then AND;
     pub fn op_rla(&mut self, bus: &mut Bus, data_ref: u16) {
         self.op_rol(bus, data_ref);
-        self.reg_a &= bus.read_8bit_cpu(data_ref);
+        self.reg_a &= self.read_8bit(bus, data_ref);
         update_zero_and_neg_flags(&mut self.cpu_status, self.reg_a);
     }
 

@@ -6,8 +6,8 @@ impl Cpu {
     /// Increments memory
     /// Possible operation HEX: 0xE6, 0xF6, 0xEE, 0xFE
     pub fn op_inc(&mut self, bus: &mut Bus, data_ref: u16) {
-        let read_data = bus.read_8bit_cpu(data_ref).wrapping_add(1);
-        bus.write_8bit_cpu(data_ref, read_data);
+        let read_data = self.read_8bit(bus, data_ref).wrapping_add(1);
+        self.write_8bit(bus, data_ref, read_data);
         update_zero_and_neg_flags(&mut self.cpu_status, read_data);
     }
 
@@ -28,8 +28,8 @@ impl Cpu {
     /// Decrements memory
     /// Possible operation HEX: 0xC6, 0xD6, 0xCE, 0xDE
     pub fn op_dec(&mut self, bus: &mut Bus, data_ref: u16) {
-        let read_data = bus.read_8bit_cpu(data_ref).wrapping_sub(1);
-        bus.write_8bit_cpu(data_ref, read_data);
+        let read_data = self.read_8bit(bus, data_ref).wrapping_sub(1);
+        self.write_8bit(bus, data_ref, read_data);
         update_zero_and_neg_flags(&mut self.cpu_status, read_data);
     }
 
@@ -115,16 +115,16 @@ fn test_incerement_decrement() {
     for i in 0..number_of_iters {
         cpu.op_inc(&mut bus, temp_store_ref);
         test_zero_and_neg(cpu.cpu_status, ((i+1) % 256) as u8);
-        assert_eq!(bus.read_8bit_cpu(temp_store_ref), ((i+1) % 256) as u8);
+        assert_eq!(cpu.read_8bit(&mut bus, temp_store_ref), ((i+1) % 256) as u8);
     }
-    assert_eq!(bus.read_8bit_cpu(temp_store_ref), 10);
+    assert_eq!(cpu.read_8bit(&mut bus, temp_store_ref), 10);
 
     for i in 0..number_of_iters {
         cpu.op_dec(&mut bus, temp_store_ref);
         test_zero_and_neg(cpu.cpu_status, ((number_of_iters - i - 1) % 256) as u8);
-        assert_eq!(bus.read_8bit_cpu(temp_store_ref), ((number_of_iters - i - 1) % 256) as u8);
+        assert_eq!(cpu.read_8bit(&mut bus, temp_store_ref), ((number_of_iters - i - 1) % 256) as u8);
     }
-    assert_eq!(bus.read_8bit_cpu(temp_store_ref), 0);
+    assert_eq!(cpu.read_8bit(&mut bus, temp_store_ref), 0);
 
     fn test_zero_and_neg(cpu_status: u8, target_value: u8) {
         assert_eq!(is_flag_set(&cpu_status, ZERO_FLAG), target_value == 0);

@@ -14,7 +14,7 @@ impl Cpu {
         inst_assert!(is_flag_set(&self.cpu_status, UNUSED_FLAG));
         bus.memory_mut().stack_push_16bit(self.program_counter, &mut self.stack_pointer);
         bus.memory_mut().stack_push_8bit(self.cpu_status, &mut self.stack_pointer);
-        self.program_counter = bus.read_16bit_cpu(0xFFFE);
+        self.program_counter = self.read_16bit(bus, 0xFFFE);
     }
 
     /// Do literally nothing outside normal change of PC

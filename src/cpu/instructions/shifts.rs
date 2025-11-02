@@ -6,10 +6,10 @@ use crate::cpu::instructions::shared_ops::{update_zero_and_neg_flags, set_flag, 
 impl Cpu {
     /// Performs arithmetic shift left on memory
     pub fn op_asl(&mut self, bus: &mut Bus, data_ref: u16) {
-        let mut read_data = bus.read_8bit_cpu(data_ref);
+        let mut read_data = self.read_8bit(bus, data_ref);
         set_flag(&mut self.cpu_status, CARRY_FLAG, read_data & 0b1000_0000 == 0b1000_0000);
         read_data <<= 1;
-        bus.write_8bit_cpu(data_ref, read_data);
+        self.write_8bit(bus, data_ref, read_data);
         update_zero_and_neg_flags(&mut self.cpu_status, read_data)
     }
 
@@ -22,10 +22,10 @@ impl Cpu {
 
     /// Logical shift right for memory
     pub fn op_lsr(&mut self, bus: &mut Bus, data_ref: u16) {
-        let mut read_data = bus.read_8bit_cpu(data_ref);
+        let mut read_data = self.read_8bit(bus, data_ref);
         set_flag(&mut self.cpu_status, CARRY_FLAG, read_data & 0b0000_0001 == 0b0000_0001);
         read_data >>= 1;
-        bus.write_8bit_cpu(data_ref, read_data);
+        self.write_8bit(bus, data_ref, read_data);
         update_zero_and_neg_flags(&mut self.cpu_status, read_data)
     }
 
@@ -39,13 +39,13 @@ impl Cpu {
     /// Rotate left for memory
     pub fn op_rol(&mut self, bus: &mut Bus, data_ref: u16) {
         let previous_carry_flag = is_flag_set(&self.cpu_status, CARRY_FLAG);
-        let mut read_data = bus.read_8bit_cpu(data_ref);
+        let mut read_data = self.read_8bit(bus, data_ref);
         set_flag(&mut self.cpu_status, CARRY_FLAG, read_data & 0b1000_0000 == 0b1000_0000);
         read_data <<= 1;
         if previous_carry_flag {
             read_data |= 0b0000_0001;
         }
-        bus.write_8bit_cpu(data_ref, read_data);
+        self.write_8bit(bus, data_ref, read_data);
         update_zero_and_neg_flags(&mut self.cpu_status, read_data);
     }
 
@@ -63,13 +63,13 @@ impl Cpu {
     /// Rotate right for memory
     pub fn op_ror(&mut self, bus: &mut Bus, data_ref: u16) {
         let previous_carry_flag = is_flag_set(&self.cpu_status, CARRY_FLAG);
-        let mut read_data = bus.read_8bit_cpu(data_ref);
+        let mut read_data = self.read_8bit(bus, data_ref);
         set_flag(&mut self.cpu_status, CARRY_FLAG, read_data & 0b0000_0001 == 0b0000_0001);
         read_data >>= 1;
         if previous_carry_flag {
             read_data |= 0b1000_0000;
         }
-        bus.write_8bit_cpu(data_ref, read_data);
+        self.write_8bit(bus, data_ref, read_data);
         update_zero_and_neg_flags(&mut self.cpu_status, read_data);
     }
 
@@ -110,9 +110,9 @@ fn test_shifts() {
 
         // ASL part
         cpu.op_asl(&mut bus, 0x0000);
-        let mem_value = bus.read_8bit_cpu(0x0000u16);
+        let mem_value = cpu.read_8bit(&mut bus, 0x0000u16);
         assert_eq!(mem_value, random_v << 1);
-        assert!(mem_value % 2 == 0);
+        assert!(mem_value.is_multiple_of(2));
         assert_eq!(is_flag_set(&cpu.cpu_status, CARRY_FLAG), random_v & 0b1000_0000 == 0b1000_0000);
         test_zero_and_neg(cpu.cpu_status, mem_value);
         let (mut old_cpu_status, mut old_mem_value) = (cpu.cpu_status, mem_value);
@@ -126,7 +126,7 @@ fn test_shifts() {
 
         // LSR part
         cpu.op_lsr(&mut bus, 0x0000);
-        let mem_value = bus.read_8bit_cpu(0x0000u16);
+        let mem_value = cpu.read_8bit(&mut bus, 0x0000u16);
         assert_eq!(mem_value, random_v >> 1);
         assert!(mem_value < 0b1000_0000);
         assert_eq!(is_flag_set(&cpu.cpu_status, CARRY_FLAG), random_v % 2 == 1);
@@ -143,11 +143,11 @@ fn test_shifts() {
         let mut carry_flag_st = is_flag_set(&cpu.cpu_status, CARRY_FLAG);
         let first_carry_flag = carry_flag_st;
 
-        bus.write_8bit_cpu(0x0000u16, random_v);
+        cpu.write_8bit(&mut bus, 0x0000u16, random_v);
         // ROL and ROR
         for _ in 0..random_st%16 {
             cpu.op_rol(&mut bus, 0x0000);
-            let mem_value = bus.read_8bit_cpu(0x0000u16);
+            let mem_value = cpu.read_8bit(&mut bus, 0x0000u16);
             assert_eq!(carry_flag_st, mem_value % 2 == 1);
             test_zero_and_neg(cpu.cpu_status, mem_value);
             carry_flag_st = is_flag_set(&cpu.cpu_status, CARRY_FLAG);
@@ -155,14 +155,14 @@ fn test_shifts() {
 
         for _ in 0..random_st%16 {
             cpu.op_ror(&mut bus, 0x0000);
-            let mem_value = bus.read_8bit_cpu(0x0000u16);
+            let mem_value = cpu.read_8bit(&mut bus, 0x0000u16);
             assert_eq!(carry_flag_st, mem_value & 0b1000_0000 == 0b1000_0000);
             test_zero_and_neg(cpu.cpu_status, mem_value);
             carry_flag_st = is_flag_set(&cpu.cpu_status, CARRY_FLAG);
         }
 
         assert_eq!(first_carry_flag, is_flag_set(&cpu.cpu_status, CARRY_FLAG));
-        assert_eq!(bus.read_8bit_cpu(0x0000u16), random_v);
+        assert_eq!(cpu.read_8bit(&mut bus, 0x0000u16), random_v);
 
         clear_cpu_and_mem(&mut cpu, &mut bus, random_st, random_v);
         let mut carry_flag_st = is_flag_set(&cpu.cpu_status, CARRY_FLAG);
@@ -189,7 +189,7 @@ fn test_shifts() {
     fn clear_cpu_and_mem(cpu: &mut Cpu, bus: &mut Bus, random_st: u8, random_v: u8) {
         cpu.cpu_status = random_st;
         cpu.reg_a = random_v;
-        bus.write_8bit_cpu(0x0000u16, random_v);
+        cpu.write_8bit(bus, 0x0000u16, random_v);
     }
 
     fn test_zero_and_neg(cpu_status: u8, target_value: u8) {

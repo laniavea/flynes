@@ -8,7 +8,7 @@ impl Cpu {
     /// Possible operation HEX: 0xB0
     pub fn op_bcs(&mut self, bus: &mut Bus, data_ref: u16) {
         if is_flag_set(&self.cpu_status, CARRY_FLAG) {
-            let read_data = bus.read_8bit_cpu(data_ref);
+            let read_data = self.read_8bit(bus, data_ref);
             let relative_displacement = (read_data as i8) as i16;
             self.program_counter = self.program_counter.wrapping_add_signed(relative_displacement)
         }
@@ -18,7 +18,7 @@ impl Cpu {
     /// Possible operation HEX: 0x90
     pub fn op_bcc(&mut self, bus: &mut Bus, data_ref: u16) {
         if !is_flag_set(&self.cpu_status, CARRY_FLAG) {
-            let read_data = bus.read_8bit_cpu(data_ref);
+            let read_data = self.read_8bit(bus, data_ref);
             let relative_displacement = (read_data as i8) as i16;
             self.program_counter = self.program_counter.wrapping_add_signed(relative_displacement)
         }
@@ -28,7 +28,7 @@ impl Cpu {
     /// Possible operation HEX: 0xF0
     pub fn op_beq(&mut self, bus: &mut Bus, data_ref: u16) {
         if is_flag_set(&self.cpu_status, ZERO_FLAG) {
-            let read_data = bus.read_8bit_cpu(data_ref);
+            let read_data = self.read_8bit(bus, data_ref);
             let relative_displacement = (read_data as i8) as i16;
             self.program_counter = self.program_counter.wrapping_add_signed(relative_displacement)
         }
@@ -38,7 +38,7 @@ impl Cpu {
     /// Possible operation HEX: 0xD0
     pub fn op_bne(&mut self, bus: &mut Bus, data_ref: u16) {
         if !is_flag_set(&self.cpu_status, ZERO_FLAG) {
-            let read_data = bus.read_8bit_cpu(data_ref);
+            let read_data = self.read_8bit(bus, data_ref);
             let relative_displacement = (read_data as i8) as i16;
             self.program_counter = self.program_counter.wrapping_add_signed(relative_displacement)
         }
@@ -48,7 +48,7 @@ impl Cpu {
     /// Possible operation HEX: 0x30
     pub fn op_bmi(&mut self, bus: &mut Bus, data_ref: u16) {
         if is_flag_set(&self.cpu_status, NEGATIVE_FLAG) {
-            let read_data = bus.read_8bit_cpu(data_ref);
+            let read_data = self.read_8bit(bus, data_ref);
             let relative_displacement = (read_data as i8) as i16;
             self.program_counter = self.program_counter.wrapping_add_signed(relative_displacement)
         }
@@ -58,7 +58,7 @@ impl Cpu {
     /// Possible operation HEX: 0x10
     pub fn op_bpl(&mut self, bus: &mut Bus, data_ref: u16) {
         if !is_flag_set(&self.cpu_status, NEGATIVE_FLAG) {
-            let read_data = bus.read_8bit_cpu(data_ref);
+            let read_data = self.read_8bit(bus, data_ref);
             let relative_displacement = (read_data as i8) as i16;
             self.program_counter = self.program_counter.wrapping_add_signed(relative_displacement)
         }
@@ -68,7 +68,7 @@ impl Cpu {
     /// Possible operation HEX: 0x70
     pub fn op_bvs(&mut self, bus: &mut Bus, data_ref: u16) {
         if is_flag_set(&self.cpu_status, OVERFLOW_FLAG) {
-            let read_data = bus.read_8bit_cpu(data_ref);
+            let read_data = self.read_8bit(bus, data_ref);
             let relative_displacement = (read_data as i8) as i16;
             self.program_counter = self.program_counter.wrapping_add_signed(relative_displacement)
         }
@@ -78,7 +78,7 @@ impl Cpu {
     /// Possible operation HEX: 0x50
     pub fn op_bvc(&mut self, bus: &mut Bus, data_ref: u16) {
         if !is_flag_set(&self.cpu_status, OVERFLOW_FLAG) {
-            let read_data = bus.read_8bit_cpu(data_ref);
+            let read_data = self.read_8bit(bus, data_ref);
             let relative_displacement = (read_data as i8) as i16;
             self.program_counter = self.program_counter.wrapping_add_signed(relative_displacement)
         }
@@ -109,7 +109,7 @@ fn test_branches() {
 
     for disp in edge_displacements {
         for flag in BRANCHABLE_FLAGS {
-            bus.write_8bit_cpu(0x0000u16, disp as u8);
+            cpu.write_8bit(&mut bus, 0x0000u16, disp as u8);
             cpu.cpu_status = 1 << flag;
             cpu.program_counter = 0x1234;
             call_by_flag(flag, true, &mut cpu, &mut bus);
@@ -135,7 +135,7 @@ fn test_branches() {
 
     fn check_by_flag(cpu: &mut Cpu, bus: &mut Bus, value: i8) {
         let old_pc = cpu.program_counter;
-        bus.write_8bit_cpu(0x0000u16, value as u8);
+        cpu.write_8bit(bus, 0x0000u16, value as u8);
         for now_flag in BRANCHABLE_FLAGS {
             if is_flag_set(&cpu.cpu_status, now_flag) {
                 call_by_flag(now_flag, true, cpu, bus);

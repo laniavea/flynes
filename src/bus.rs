@@ -30,7 +30,7 @@ impl Bus {
 }
 
 impl Bus {
-    pub fn read_8bit_cpu<T>(&mut self, requested_address: T) -> u8
+    pub fn read_8bit_cpu<T>(&mut self, requested_address: T, actual_cpu_cycles: &usize) -> u8
     where 
         T: Into<usize> + Copy
     {
@@ -41,7 +41,7 @@ impl Bus {
             self.mapper.read(requested_address, self.memory.prg_data())
         } else if requested_address >= APU_REGS.start {
             inst_assert!((APU_REGS.start..=APU_IO_FUNC.end).contains(&requested_address));
-            0 //FIX: Add APU and IO registers
+            (actual_cpu_cycles % 2) as u8 //FIX: Add APU and IO registers
         } else if requested_address >= PPU_REGS_MIRRORS.start { // PPU REGS
             inst_assert!((PPU_REGS_MIRRORS.start..=PPU_REGS_MIRRORS.end).contains(&requested_address));
             self.ppu.read_from_registers(requested_address % 8) //TODO: Implement this function
@@ -57,7 +57,7 @@ impl Bus {
         }
     }
 
-    pub fn write_8bit_cpu<T>(&mut self, requested_address: T, value: u8)
+    pub fn write_8bit_cpu<T>(&mut self, requested_address: T, value: u8, actual_cpu_cycles: &usize)
     where 
         T: Into<usize> + Copy
     {
@@ -69,6 +69,9 @@ impl Bus {
             self.mapper.write(requested_address, value, self.memory.prg_data_mut());
         } else if requested_address >= APU_REGS.start {
             inst_assert!((APU_REGS.start..=APU_IO_FUNC.end).contains(&requested_address));
+            if *actual_cpu_cycles > 0xFFFFFFFF {
+                println!("here")
+            }
             //FIX: Add APU and IO registers
         } else if requested_address >= PPU_REGS_MIRRORS.start { // PPU REGS
             inst_assert!((PPU_REGS_MIRRORS.start..=PPU_REGS_MIRRORS.end).contains(&requested_address));
@@ -83,33 +86,6 @@ impl Bus {
             inst_assert!(requested_address <= RAM.end);
             self.memory.ram_mut()[requested_address] = value;
         }
-    }
-
-    pub fn read_16bit_cpu(&mut self, requested_address: u16) -> u16 {
-        let requested_byte = self.read_8bit_cpu(requested_address);
-        let next_byte = self.read_8bit_cpu(requested_address.wrapping_add(1));
-
-        ((next_byte as u16) << 8) + (requested_byte as u16)
-    }
-
-    pub fn read_16bit_cpu_zp_wrap(&mut self, requested_address: u16) -> u16 {
-        if requested_address == 0x00FF {
-            let first_byte = self.read_8bit_cpu(0x0000usize) as u16;
-            let second_byte = self.read_8bit_cpu(0x00FFusize) as u16;
-            return (first_byte << 8) + second_byte;
-        }
-
-        self.read_16bit_cpu(requested_address)
-    }
-
-    pub fn read_16bit_cpu_jmp_bug(&mut self, requested_address: u16) -> u16 {
-        if requested_address & 0x00FF == 0x00FF {
-            let first_byte = self.read_8bit_cpu(requested_address & 0xFF00) as u16;
-            let second_byte = self.read_8bit_cpu(requested_address) as u16;
-            return (first_byte << 8) + second_byte;
-        }
-
-        self.read_16bit_cpu(requested_address)
     }
 }
 

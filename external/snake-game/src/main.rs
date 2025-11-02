@@ -50,8 +50,7 @@ fn main() {
     let mut bus = Bus::default();
 
     for (now_shift, now_byte) in snake_game_hex.iter().enumerate() {
-        bus.write_8bit_cpu(ROM_START + now_shift, *now_byte);
-        // *memory.get_mut_8bit_value(ROM_START + now_shift) = *now_byte;
+        cpu_unit.write_8bit(&mut bus, ROM_START + now_shift, *now_byte);
     }
 
     let sdl_context = sdl2::init().unwrap();
@@ -81,11 +80,10 @@ fn main() {
     cpu_unit.set_pc(ROM_START as u16);
 
     loop {
-        handle_user_input(&mut bus, &mut event_pump);
-        // *memory.get_mut_8bit_value(0xFEusize) = rng.random_range(1..16);
-        bus.write_8bit_cpu(0xFEusize, rng.random_range(1..16));
+        handle_user_input(&mut cpu_unit, &mut bus, &mut event_pump);
+        cpu_unit.write_8bit(&mut bus, 0xFEusize, rng.random_range(1..16));
 
-        if read_screen_state(&mut bus, &mut screen_state) {
+        if read_screen_state(&mut cpu_unit, &mut bus, &mut screen_state) {
             texture.update(None, &screen_state, 32 * 3).unwrap();
             canvas.copy(&texture, None, None).unwrap();
             canvas.present();
@@ -108,23 +106,23 @@ fn main() {
     }
 }
 
-fn handle_user_input(bus: &mut Bus, event_pump: &mut EventPump) {
+fn handle_user_input(cpu_unit: &mut Cpu, bus_unit: &mut Bus, event_pump: &mut EventPump) {
     for event in event_pump.poll_iter() {
         match event {
             Event::Quit { .. } | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                 std::process::exit(0)
             },
             Event::KeyDown { keycode: Some(Keycode::W), .. } => {
-                bus.write_8bit_cpu(0xFFusize, 0x77);
+                cpu_unit.write_8bit(bus_unit, 0xFFusize, 0x77);
             },
             Event::KeyDown { keycode: Some(Keycode::S), .. } => {
-                bus.write_8bit_cpu(0xFFusize, 0x73);
+                cpu_unit.write_8bit(bus_unit, 0xFFusize, 0x73);
             },
             Event::KeyDown { keycode: Some(Keycode::A), .. } => {
-                bus.write_8bit_cpu(0xFFusize, 0x61);
+                cpu_unit.write_8bit(bus_unit, 0xFFusize, 0x61);
             },
             Event::KeyDown { keycode: Some(Keycode::D), .. } => {
-                bus.write_8bit_cpu(0xFFusize, 0x64);
+                cpu_unit.write_8bit(bus_unit, 0xFFusize, 0x64);
             }
             _ => {/* do nothing */}
         }
@@ -145,11 +143,11 @@ fn color(byte: u8) -> Color {
     }
 }
 
-fn read_screen_state(bus: &mut Bus, frame: &mut [u8; (SNAKE_GAME_WIDTH * 3 * SNAKE_GAME_HEIGHT) as usize]) -> bool {
+fn read_screen_state(cpu_unit: &mut Cpu, bus_unit: &mut Bus, frame: &mut [u8; (SNAKE_GAME_WIDTH * 3 * SNAKE_GAME_HEIGHT) as usize]) -> bool {
     let mut frame_idx = 0;
     let mut update = false;
     for i in 0x0200..0x0600 {
-        let color_idx = bus.read_8bit_cpu(i as u16);
+        let color_idx = cpu_unit.read_8bit(bus_unit, i as u16);
         let (b1, b2, b3) = color(color_idx).rgb();
         if frame[frame_idx] != b1 || frame[frame_idx + 1] != b2 || frame[frame_idx + 2] != b3 {
             frame[frame_idx] = b1;
