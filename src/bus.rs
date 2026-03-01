@@ -7,12 +7,19 @@ use crate::memory::{PPU_PATTERN_TABLES, PPU_NAME_TABLES, PPU_UNUSED_SPACE, PPU_P
 use crate::ppu::Ppu;
 use crate::mappers::{Mappers, MapperRW};
 
+#[derive(Debug, Copy, Clone, Default)]
+pub enum InterruptStatus {
+    #[default]
+    None,
+    NMI,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Bus {
     memory: Memory,
     ppu: Ppu,
     mapper: Mappers,
-    cpu_cycles_num: usize,
+    interrupt_status: InterruptStatus,
 }
 
 impl Bus {
@@ -26,6 +33,14 @@ impl Bus {
 
     pub fn set_mapper(&mut self, mapper: Mappers) {
         self.mapper = mapper;
+    }
+
+    pub fn interrupt_status(&mut self) -> InterruptStatus {
+        self.interrupt_status
+    }
+
+    pub fn set_interrupt_status(&mut self, new_interrupt_status: InterruptStatus) {
+        self.interrupt_status = new_interrupt_status;
     }
 }
 
@@ -44,9 +59,11 @@ impl Bus {
             (actual_cpu_cycles % 2) as u8 //FIX: Add APU and IO registers
         } else if requested_address >= PPU_REGS_MIRRORS.start { // PPU REGS
             inst_assert!((PPU_REGS_MIRRORS.start..=PPU_REGS_MIRRORS.end).contains(&requested_address));
+            self.sync_modules(actual_cpu_cycles);
             self.ppu.read_from_registers(requested_address % 8) //TODO: Implement this function
         } else if requested_address >= PPU_REGS.start { // PPU REGS
             inst_assert!((PPU_REGS.start..=PPU_REGS.end).contains(&requested_address));
+            self.sync_modules(actual_cpu_cycles);
             self.ppu.read_from_registers(requested_address - PPU_REGS.start) //TODO: Implement this function
         } else if requested_address >= RAM_MIRRORS.start { // RAM MIRRORS
             inst_assert!((RAM_MIRRORS.start..=RAM_MIRRORS.end).contains(&requested_address));
@@ -75,9 +92,11 @@ impl Bus {
             //FIX: Add APU and IO registers
         } else if requested_address >= PPU_REGS_MIRRORS.start { // PPU REGS
             inst_assert!((PPU_REGS_MIRRORS.start..=PPU_REGS_MIRRORS.end).contains(&requested_address));
+            self.sync_modules(actual_cpu_cycles);
             self.ppu.write_to_registers(requested_address % 8, value); //TODO: Implement this function
         } else if requested_address >= PPU_REGS.start { // PPU REGS
             inst_assert!((PPU_REGS.start..=PPU_REGS.end).contains(&requested_address));
+            self.sync_modules(actual_cpu_cycles);
             self.ppu.write_to_registers(requested_address - PPU_REGS.start, value); //TODO: Implement this function
         } else if requested_address >= RAM_MIRRORS.start { // RAM MIRRORS
             inst_assert!((RAM_MIRRORS.start..=RAM_MIRRORS.end).contains(&requested_address));
@@ -115,7 +134,7 @@ impl Bus {
 }
 
 impl Bus {
-    pub fn execute_modules(&mut self) {
-
+    pub fn sync_modules(&mut self, actual_cpu_cycles: &usize) {
+        self.ppu.sync_with_cpu(*actual_cpu_cycles, &mut self.interrupt_status);
     }
 }

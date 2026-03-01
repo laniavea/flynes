@@ -2,7 +2,7 @@ use better_assertions::{inst_assert_eq, fast_assert};
 use log::{trace, debug, info, warn, error};
 
 use crate::memory::MemoryType;
-use crate::bus::Bus;
+use crate::bus::{Bus, InterruptStatus};
 use crate::common;
 use instructions::{Operation, CPUInstByte};
 
@@ -213,6 +213,13 @@ impl Cpu {
 }
 
 impl Cpu {
+    fn trigger_nmi(&mut self, bus: &mut Bus) {
+        bus.memory_mut().stack_push_16bit(self.program_counter, &mut self.stack_pointer);
+        let new_cpu_status = self.cpu_status;
+    }
+}
+
+impl Cpu {
     pub fn run_cpu(&mut self, bus: &mut Bus) {
         debug!("Running CPU with next PC: {}", common::number_to_hex(self.program_counter, true));
 
@@ -283,6 +290,11 @@ impl Cpu {
             }
         }
 
+        if matches!(bus.interrupt_status(), InterruptStatus::NMI) {
+            self.trigger_nmi(bus);
+            bus.set_interrupt_status(InterruptStatus::None);
+        }
+
         Ok(now_inst.cycles())
     }
 
@@ -335,6 +347,11 @@ impl Cpu {
                 );
                 return Err("NoOp parsed")
             }
+        }
+
+        if matches!(bus.interrupt_status(), InterruptStatus::NMI) {
+            self.trigger_nmi(bus);
+            bus.set_interrupt_status(InterruptStatus::None);
         }
 
         Ok((now_inst, fetched_bytes))

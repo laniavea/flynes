@@ -2,6 +2,7 @@ use log::warn;
 use better_assertions::inst_assert;
 
 use crate::common::is_bit_set;
+use crate::bus::InterruptStatus;
 
 const PPU_CTRL_REG: usize = 0;
 const PPU_MASK_REG: usize = 1;
@@ -166,8 +167,9 @@ impl PpuStatus {
 #[derive(Debug, Clone)]
 pub struct Ppu {
     scanline: u16,
-    cycles_per_scanline: u16,
     cycles: usize,
+    cycles_per_scanline: u16,
+    sync_on_cpu_cycle: usize,
     render_status: Option<PpuRenderStatus>,
     registers: [u8; 9],
     oam_data: [u8; 256],
@@ -185,8 +187,9 @@ impl Default for Ppu {
     fn default() -> Self {
         Self {
             scanline: 0,
-            cycles_per_scanline: 0,
             cycles: 0,
+            cycles_per_scanline: 0,
+            sync_on_cpu_cycle: 0,
             render_status: None,
             registers: [0u8; 9],
             oam_data: [0u8; 256],
@@ -308,14 +311,21 @@ impl Ppu {
 }
 
 impl Ppu {
-    pub fn execute_cycles(&mut self, cycles_num: usize) {
+    pub fn sync_with_cpu(&mut self, actual_cpu_cycles: usize, bus_status: &mut InterruptStatus) {
+        inst_assert!(actual_cpu_cycles >= self.sync_on_cpu_cycle);
+        let cycles_to_exec = actual_cpu_cycles - self.sync_on_cpu_cycle;
+        self.execute_cycles(cycles_to_exec, bus_status);
+    }
+
+    pub fn execute_cycles(&mut self, cycles_num: usize, bus_status: &mut InterruptStatus) {
         let end_cycle = self.cycles + cycles_num;
-        while self.cycles < end_cycle {
+        while self.cycles <= end_cycle {
             if self.cycles_per_scanline >= 341 {
                 self.cycles_per_scanline = 0;
                 self.scanline += 1;
 
                 if self.scanline == 241 {
+                    *bus_status = InterruptStatus::NMI;
                     self.render_status = Some(PpuRenderStatus::NmiTrigger);
 
                 } else if self.scanline >= 262 {
@@ -324,7 +334,7 @@ impl Ppu {
                 }
 
             }
-
+            self.cycles_per_scanline += 1;
             self.cycles += 1;
         }
     }

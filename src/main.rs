@@ -56,7 +56,6 @@ fn test_rom() {
     cpu_unit.set_pc(0xC000);
 
     run_cpu_measure_time(&mut cpu_unit, &mut bus_unit)
-    // cpu_unit.run_cpu(&mut bus_unit);
 }
 
 fn run_cpu_measure_time(cpu_unit: &mut cpu::Cpu, bus: &mut bus::Bus) {
