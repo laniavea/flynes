@@ -1,8 +1,8 @@
 use std::fs;
 
-use flynes::cpu::Cpu;
-use flynes::cartridges;
-use flynes::common::number_to_hex;
+use flynes_core::cpu::Cpu;
+use flynes_core::cartridges;
+use flynes_core::common::number_to_hex;
 
 const LOG_VERSION: u8 = 1;
 

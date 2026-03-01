@@ -6,8 +6,8 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::pixels::PixelFormatEnum;
 
-use flynes::cpu::Cpu;
-use flynes::bus::Bus;
+use flynes_core::cpu::Cpu;
+use flynes_core::bus::Bus;
 
 use std::thread;
 use std::time::Duration;

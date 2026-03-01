@@ -44,7 +44,7 @@ fn test_rom() {
     let (
         mut cpu_unit,
         mut bus_unit
-    ) = match cartridges::read_nes_file("./roms/nestest.nes".into()) {
+    ) = match cartridges::read_nes_file("../../roms/nestest.nes".into()) {
         Ok(modules) => modules,
         Err(err) => {
             println!("Error occured, see log");
