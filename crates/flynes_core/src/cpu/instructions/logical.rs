@@ -1,7 +1,7 @@
-use crate::cpu::Cpu;
 use crate::bus::Bus;
-use crate::cpu::{ZERO_FLAG, OVERFLOW_FLAG, NEGATIVE_FLAG};
-use crate::cpu::instructions::shared_ops::{update_zero_and_neg_flags, set_flag, transfer_bit};
+use crate::cpu::Cpu;
+use crate::cpu::instructions::shared_ops::{set_flag, transfer_bit, update_zero_and_neg_flags};
+use crate::cpu::{NEGATIVE_FLAG, OVERFLOW_FLAG, ZERO_FLAG};
 
 impl Cpu {
     /// Perfomrs logical AND between register A and data, result saved in reg A
@@ -25,7 +25,11 @@ impl Cpu {
     /// Performs logical AND between register A and data, affects only to cpu status
     pub fn op_bit(&mut self, bus: &mut Bus, data_ref: u16) {
         let read_data = self.read_8bit(bus, data_ref);
-        set_flag(&mut self.cpu_status, ZERO_FLAG, (read_data & self.reg_a) == 0);
+        set_flag(
+            &mut self.cpu_status,
+            ZERO_FLAG,
+            (read_data & self.reg_a) == 0,
+        );
         transfer_bit(&mut self.cpu_status, &read_data, OVERFLOW_FLAG);
         transfer_bit(&mut self.cpu_status, &read_data, NEGATIVE_FLAG);
     }
@@ -33,11 +37,11 @@ impl Cpu {
 
 #[test]
 fn test_logical_operations() {
-    use rand::{SeedableRng, Rng};
     use rand::rngs::StdRng;
+    use rand::{RngExt, SeedableRng};
 
-    use crate::cpu::{ZERO_FLAG, NEGATIVE_FLAG, OVERFLOW_FLAG};
     use crate::cpu::instructions::shared_ops::is_flag_set;
+    use crate::cpu::{NEGATIVE_FLAG, OVERFLOW_FLAG, ZERO_FLAG};
 
     let mut rng: StdRng = StdRng::seed_from_u64(42);
 
@@ -88,13 +92,25 @@ fn test_logical_operations() {
         cpu.cpu_status = random_st;
         cpu.reg_a = random_v;
         cpu.op_bit(&mut bus, 0x0003);
-        assert_eq!(is_flag_set(&cpu.cpu_status, ZERO_FLAG), other_random_v & random_v == 0);
-        assert_eq!(is_flag_set(&cpu.cpu_status, NEGATIVE_FLAG), is_flag_set(&other_random_v, NEGATIVE_FLAG));
-        assert_eq!(is_flag_set(&cpu.cpu_status, OVERFLOW_FLAG), is_flag_set(&other_random_v, OVERFLOW_FLAG));
+        assert_eq!(
+            is_flag_set(&cpu.cpu_status, ZERO_FLAG),
+            other_random_v & random_v == 0
+        );
+        assert_eq!(
+            is_flag_set(&cpu.cpu_status, NEGATIVE_FLAG),
+            is_flag_set(&other_random_v, NEGATIVE_FLAG)
+        );
+        assert_eq!(
+            is_flag_set(&cpu.cpu_status, OVERFLOW_FLAG),
+            is_flag_set(&other_random_v, OVERFLOW_FLAG)
+        );
     }
 
     fn test_zero_and_neg(cpu_status: u8, target_value: u8) {
         assert_eq!(is_flag_set(&cpu_status, ZERO_FLAG), target_value == 0);
-        assert_eq!(is_flag_set(&cpu_status, NEGATIVE_FLAG), target_value >= 0b1000_0000);
+        assert_eq!(
+            is_flag_set(&cpu_status, NEGATIVE_FLAG),
+            target_value >= 0b1000_0000
+        );
     }
 }

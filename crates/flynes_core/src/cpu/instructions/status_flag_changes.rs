@@ -41,7 +41,7 @@ impl Cpu {
 
 #[test]
 fn test_status_flag_changes() {
-    use rand::{SeedableRng, Rng};
+    use rand::{SeedableRng, RngExt};
     use rand::rngs::StdRng;
 
     use crate::cpu::instructions::shared_ops::is_flag_set;

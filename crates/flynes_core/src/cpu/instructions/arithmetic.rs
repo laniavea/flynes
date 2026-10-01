@@ -1,7 +1,7 @@
-use crate::cpu::Cpu;
 use crate::cpu::Bus;
+use crate::cpu::Cpu;
+use crate::cpu::instructions::shared_ops::{is_flag_set, set_flag, update_zero_and_neg_flags};
 use crate::cpu::{CARRY_FLAG, OVERFLOW_FLAG};
-use crate::cpu::instructions::shared_ops::{update_zero_and_neg_flags, is_flag_set, set_flag};
 
 impl Cpu {
     /// Writes add with carry to reg A by formula A(reg) + M(emory) + C(arry)
@@ -14,14 +14,14 @@ impl Cpu {
         let read_data = self.read_8bit(bus, data_ref);
         self.reg_a = if is_flag_set(&self.cpu_status, CARRY_FLAG) {
             let temp_val = self.reg_a.wrapping_add(read_data).wrapping_add(1);
-            let over_fl_st = (self.reg_a^temp_val) & (read_data^temp_val) & 0b1000_0000 != 0;
+            let over_fl_st = (self.reg_a ^ temp_val) & (read_data ^ temp_val) & 0b1000_0000 != 0;
 
             set_flag(&mut self.cpu_status, OVERFLOW_FLAG, over_fl_st);
             set_flag(&mut self.cpu_status, CARRY_FLAG, temp_val <= self.reg_a);
             temp_val
         } else {
             let temp_val = self.reg_a.wrapping_add(read_data);
-            let over_fl_st = (self.reg_a^temp_val) & (read_data^temp_val) & 0b1000_0000 != 0;
+            let over_fl_st = (self.reg_a ^ temp_val) & (read_data ^ temp_val) & 0b1000_0000 != 0;
 
             set_flag(&mut self.cpu_status, OVERFLOW_FLAG, over_fl_st);
             set_flag(&mut self.cpu_status, CARRY_FLAG, temp_val < self.reg_a);
@@ -41,14 +41,16 @@ impl Cpu {
         let read_data = self.read_8bit(bus, data_ref);
         self.reg_a = if is_flag_set(&self.cpu_status, CARRY_FLAG) {
             let temp_val = self.reg_a.wrapping_sub(read_data);
-            let over_fl_st = (self.reg_a^temp_val) & ((0b1111_1111 - read_data)^temp_val) & 0b1000_0000 != 0;
+            let over_fl_st =
+                (self.reg_a ^ temp_val) & ((0b1111_1111 - read_data) ^ temp_val) & 0b1000_0000 != 0;
 
             set_flag(&mut self.cpu_status, OVERFLOW_FLAG, over_fl_st);
             set_flag(&mut self.cpu_status, CARRY_FLAG, temp_val <= self.reg_a);
             temp_val
         } else {
             let temp_val = self.reg_a.wrapping_sub(read_data).wrapping_sub(1);
-            let over_fl_st = (self.reg_a^temp_val) & ((0b1111_1111 - read_data)^temp_val) & 0b1000_0000 != 0;
+            let over_fl_st =
+                (self.reg_a ^ temp_val) & ((0b1111_1111 - read_data) ^ temp_val) & 0b1000_0000 != 0;
 
             set_flag(&mut self.cpu_status, OVERFLOW_FLAG, over_fl_st);
             set_flag(&mut self.cpu_status, CARRY_FLAG, temp_val < self.reg_a);
@@ -61,38 +63,36 @@ impl Cpu {
     /// Compares memory with register A, changes cpu status
     /// Possible operation HEX: 0xC9, 0xC5, 0xD5, 0xCD, 0xDD, 0xD9, 0xC1, 0xD1
     pub fn op_cmp(&mut self, bus: &mut Bus, data_ref: u16) {
-        let read_data = self.read_8bit(bus, data_ref);
-        set_flag(&mut self.cpu_status, CARRY_FLAG, self.reg_a >= read_data);
-        let temp_res = self.reg_a.wrapping_sub(read_data);
-        update_zero_and_neg_flags(&mut self.cpu_status, temp_res);
+        self.sh_compare(bus, data_ref, self.reg_a);
     }
 
     /// Compares memory with register X, changes cpu status
     /// Possible operation HEX: 0xE0, 0xE4, 0xEC
     pub fn op_cpx(&mut self, bus: &mut Bus, data_ref: u16) {
-        let read_data = self.read_8bit(bus, data_ref);
-        set_flag(&mut self.cpu_status, CARRY_FLAG, self.reg_x >= read_data);
-        let temp_res = self.reg_x.wrapping_sub(read_data);
-        update_zero_and_neg_flags(&mut self.cpu_status, temp_res);
+        self.sh_compare(bus, data_ref, self.reg_x);
     }
 
     /// Compares memory with register Y, changes cpu status
     /// Possible operation HEX: 0xC0, 0xC4, 0xCC
     pub fn op_cpy(&mut self, bus: &mut Bus, data_ref: u16) {
+        self.sh_compare(bus, data_ref, self.reg_y);
+    }
+
+    fn sh_compare(&mut self, bus: &mut Bus, data_ref: u16, register: u8) {
         let read_data = self.read_8bit(bus, data_ref);
-        set_flag(&mut self.cpu_status, CARRY_FLAG, self.reg_y >= read_data);
-        let temp_res = self.reg_y.wrapping_sub(read_data);
+        set_flag(&mut self.cpu_status, CARRY_FLAG, register >= read_data);
+        let temp_res = register.wrapping_sub(read_data);
         update_zero_and_neg_flags(&mut self.cpu_status, temp_res);
     }
 }
 
 #[test]
 fn test_arithmetic() {
-    use rand::{SeedableRng, Rng};
     use rand::rngs::StdRng;
+    use rand::{RngExt, SeedableRng};
 
     use crate::cpu::instructions::shared_ops::is_flag_set;
-    use crate::cpu::{ZERO_FLAG, NEGATIVE_FLAG};
+    use crate::cpu::{NEGATIVE_FLAG, ZERO_FLAG};
 
     let mut rng: StdRng = StdRng::seed_from_u64(42);
 
@@ -127,7 +127,12 @@ fn test_arithmetic() {
     cpu.op_adc(&mut bus, 0x0000);
     check_arith(cpu.reg_a, 0x20, cpu.cpu_status, [false, true, false, true]);
     cpu.op_adc(&mut bus, 0x0001);
-    check_arith(cpu.reg_a, 0x41, cpu.cpu_status, [false, false, false, false]);
+    check_arith(
+        cpu.reg_a,
+        0x41,
+        cpu.cpu_status,
+        [false, false, false, false],
+    );
     cpu.op_adc(&mut bus, 0x0002);
     check_arith(cpu.reg_a, 0x91, cpu.cpu_status, [true, true, false, false]);
     cpu.op_adc(&mut bus, 0x0003);
@@ -146,7 +151,6 @@ fn test_arithmetic() {
     check_arith(cpu.reg_a, 0x80, cpu.cpu_status, [true, true, false, false]);
     cpu.op_adc(&mut bus, 0x0009);
     check_arith(cpu.reg_a, 0x7F, cpu.cpu_status, [false, true, false, true]);
-
 
     // ASM code for tests below
     // -----------------------
@@ -167,7 +171,9 @@ fn test_arithmetic() {
     // CLC
     // SBC #$01
 
-    let sbc_values: [u8; 15] = [0x64, 0x9B, 0x01, 0xFC, 0x02, 0x80, 0x80, 0xFF, 0xFD, 0x00, 0xFF, 0x00, 0x00, 0x01, 0x7F];
+    let sbc_values: [u8; 15] = [
+        0x64, 0x9B, 0x01, 0xFC, 0x02, 0x80, 0x80, 0xFF, 0xFD, 0x00, 0xFF, 0x00, 0x00, 0x01, 0x7F,
+    ];
     for (now_value_id, now_value) in sbc_values.iter().enumerate() {
         cpu.write_8bit(&mut bus, now_value_id as u16, *now_value)
     }
@@ -194,7 +200,12 @@ fn test_arithmetic() {
     cpu.op_sbc(&mut bus, 0x0009);
     check_arith(cpu.reg_a, 0x00, cpu.cpu_status, [false, false, true, true]);
     cpu.op_sbc(&mut bus, 0x000A);
-    check_arith(cpu.reg_a, 0x01, cpu.cpu_status, [false, false, false, false]);
+    check_arith(
+        cpu.reg_a,
+        0x01,
+        cpu.cpu_status,
+        [false, false, false, false],
+    );
     cpu.op_sbc(&mut bus, 0x000B);
     check_arith(cpu.reg_a, 0x00, cpu.cpu_status, [false, false, true, true]);
     cpu.op_sbc(&mut bus, 0x000C);
@@ -233,9 +244,18 @@ fn test_arithmetic() {
         cpu.op_cpy(&mut bus, 0x0000);
         assert_eq!(cpu.cpu_status, new_cpu_status);
 
-        assert_eq!(is_flag_set(&cpu.cpu_status, NEGATIVE_FLAG), last_val.wrapping_sub(random_v) & 0b1000_0000 != 0);
-        assert_eq!(is_flag_set(&cpu.cpu_status, CARRY_FLAG), last_val >= random_v);
-        assert_eq!(is_flag_set(&cpu.cpu_status, ZERO_FLAG), last_val == random_v);
+        assert_eq!(
+            is_flag_set(&cpu.cpu_status, NEGATIVE_FLAG),
+            last_val.wrapping_sub(random_v) & 0b1000_0000 != 0
+        );
+        assert_eq!(
+            is_flag_set(&cpu.cpu_status, CARRY_FLAG),
+            last_val >= random_v
+        );
+        assert_eq!(
+            is_flag_set(&cpu.cpu_status, ZERO_FLAG),
+            last_val == random_v
+        );
 
         last_val = random_v;
     }

@@ -47,7 +47,7 @@ impl Cpu {
 
 #[test]
 fn test_stack_operations() {
-    use rand::{SeedableRng, Rng};
+    use rand::{SeedableRng, RngExt};
     use rand::rngs::StdRng;
 
     use crate::cpu::{ZERO_FLAG, NEGATIVE_FLAG};

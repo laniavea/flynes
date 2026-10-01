@@ -1,5 +1,5 @@
-use crate::cpu::Cpu;
 use crate::bus::Bus;
+use crate::cpu::Cpu;
 
 impl Cpu {
     /// Jump operation. Sets PC to specified address
@@ -12,7 +12,8 @@ impl Cpu {
     /// Possible operation HEX: 0x20
     pub fn op_jsr(&mut self, bus: &mut Bus, data: u16) {
         self.program_counter = self.program_counter.wrapping_sub(1);
-        bus.memory_mut().stack_push_16bit(self.program_counter, &mut self.stack_pointer);
+        bus.memory_mut()
+            .stack_push_16bit(self.program_counter, &mut self.stack_pointer);
         self.program_counter = data;
     }
 
@@ -26,8 +27,8 @@ impl Cpu {
 
 #[test]
 fn test_jump_calls() {
-    use rand::{SeedableRng, Rng};
     use rand::rngs::StdRng;
+    use rand::{RngExt, SeedableRng};
 
     let mut cpu = Cpu {
         stack_pointer: 0b0000_0000,

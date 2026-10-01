@@ -1,0 +1,10 @@
+[package]
+name = "flynes_ui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+flynes_core = {path = "../flynes_core/", version = "0.1.0"}
+log = "0.4.29"
+pretty_env_logger = "0.5.0"
+sdl3 = {features = ["ttf"], version = "0.18.4"}

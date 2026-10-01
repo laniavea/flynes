@@ -1,12 +1,13 @@
 use log::info;
 
-pub mod cpu;
-pub mod memory;
+pub mod bus;
 pub mod cartridges;
 pub mod common;
-pub mod ppu;
-pub mod bus;
+pub mod cpu;
+pub mod debug_info;
 pub mod mappers;
+pub mod memory;
+pub mod ppu;
 
 const WORKFLOW_MODE: u8 = 2;
 
@@ -41,17 +42,15 @@ fn temp_unit() {
 }
 
 fn test_rom() {
-    let (
-        mut cpu_unit,
-        mut bus_unit
-    ) = match cartridges::read_nes_file("../../roms/nestest.nes".into()) {
-        Ok(modules) => modules,
-        Err(err) => {
-            println!("Error occured, see log");
-            println!("Error: {err}");
-            return
-        }
-    };
+    let (mut cpu_unit, mut bus_unit) =
+        match cartridges::read_nes_file("../../roms/nestest.nes".into()) {
+            Ok(modules) => modules,
+            Err(err) => {
+                println!("Error occured, see log");
+                println!("Error: {err}");
+                return;
+            }
+        };
 
     cpu_unit.set_pc(0xC000);
 

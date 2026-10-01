@@ -29,11 +29,11 @@ impl Cpu {
 
 #[test]
 fn test_register_transfer() {
-    use rand::{SeedableRng, Rng};
     use rand::rngs::StdRng;
+    use rand::{RngExt, SeedableRng};
 
     use crate::cpu::instructions::shared_ops::is_flag_set;
-    use crate::cpu::{ZERO_FLAG, NEGATIVE_FLAG};
+    use crate::cpu::{NEGATIVE_FLAG, ZERO_FLAG};
 
     let mut rng: StdRng = StdRng::seed_from_u64(42);
 
@@ -81,6 +81,9 @@ fn test_register_transfer() {
 
     fn test_zero_and_neg(cpu_status: u8, target_value: u8) {
         assert_eq!(is_flag_set(&cpu_status, ZERO_FLAG), target_value == 0);
-        assert_eq!(is_flag_set(&cpu_status, NEGATIVE_FLAG), target_value >= 0b1000_0000);
+        assert_eq!(
+            is_flag_set(&cpu_status, NEGATIVE_FLAG),
+            target_value >= 0b1000_0000
+        );
     }
 }

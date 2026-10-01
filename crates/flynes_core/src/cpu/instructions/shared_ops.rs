@@ -9,7 +9,7 @@ const ZERO_FLAG_BIT: u8 = 0b0000_0001 << ZERO_FLAG;
 pub fn update_zero_and_neg_flags(cpu_status: &mut u8, op_result: u8) {
     if op_result == 0 {
         *cpu_status |= ZERO_FLAG_BIT;
-        *cpu_status &= !NEGATIVE_FLAG_BIT; 
+        *cpu_status &= !NEGATIVE_FLAG_BIT;
     } else {
         *cpu_status = (*cpu_status & !NEGATIVE_FLAG_BIT) | (op_result & NEGATIVE_FLAG_BIT);
         *cpu_status &= !ZERO_FLAG_BIT;
@@ -32,7 +32,6 @@ pub fn set_flag(cpu_status: &mut u8, flag_to_check: usize, is_one: bool) {
     }
 }
 
-
 #[inline(always)]
 pub fn transfer_bit(transfer_to: &mut u8, transfer_from: &u8, bit_num: usize) {
     inst_assert!((0..=7).contains(&bit_num));
@@ -40,10 +39,22 @@ pub fn transfer_bit(transfer_to: &mut u8, transfer_from: &u8, bit_num: usize) {
     *transfer_to = (*transfer_to & !tr_bit) | (transfer_from & tr_bit);
 }
 
+#[inline(always)]
+pub fn branch_pc_calc(pc: u16, rel_displacement: u8) -> u16 {
+    let relative_displacement = (rel_displacement as i8) as i16;
+    pc.wrapping_add_signed(relative_displacement)
+}
+
 #[test]
 fn test_update_zero_and_neg_flags() {
     for i in 0..=255 {
-        for result_value in [0b1111_1111, 0b1000_0000, 0b0111_1111, 0b0000_0001, 0b0000_0000] {
+        for result_value in [
+            0b1111_1111,
+            0b1000_0000,
+            0b0111_1111,
+            0b0000_0001,
+            0b0000_0000,
+        ] {
             cmp_res(i, result_value);
         }
     }
@@ -53,16 +64,28 @@ fn test_update_zero_and_neg_flags() {
         update_zero_and_neg_flags(&mut new_status, result_value);
 
         let preserved_mask = !(ZERO_FLAG_BIT | NEGATIVE_FLAG_BIT);
-        assert_eq!(new_status & preserved_mask, old_status & preserved_mask, "Unrelated flags modified");
-        assert_eq!(new_status & NEGATIVE_FLAG_BIT, result_value & NEGATIVE_FLAG_BIT, "NEGATIVE flag incorrect");
-        assert_eq!(new_status & ZERO_FLAG_BIT == ZERO_FLAG_BIT, result_value == 0, "ZERO flag incorrect");
+        assert_eq!(
+            new_status & preserved_mask,
+            old_status & preserved_mask,
+            "Unrelated flags modified"
+        );
+        assert_eq!(
+            new_status & NEGATIVE_FLAG_BIT,
+            result_value & NEGATIVE_FLAG_BIT,
+            "NEGATIVE flag incorrect"
+        );
+        assert_eq!(
+            new_status & ZERO_FLAG_BIT == ZERO_FLAG_BIT,
+            result_value == 0,
+            "ZERO flag incorrect"
+        );
     }
 }
 
 #[test]
 fn test_is_flag_set() {
-    use rand::{SeedableRng, Rng};
     use rand::rngs::StdRng;
+    use rand::{RngExt, SeedableRng};
 
     let mut rng: StdRng = StdRng::seed_from_u64(42);
 
@@ -85,8 +108,8 @@ fn test_is_flag_set() {
 #[test]
 // Depends on is_flag_set
 fn test_set_flag() {
-    use rand::{SeedableRng, Rng};
     use rand::rngs::StdRng;
+    use rand::{RngExt, SeedableRng};
 
     let mut rng: StdRng = StdRng::seed_from_u64(42);
 
@@ -123,8 +146,8 @@ fn test_set_flag() {
 #[test]
 // Depends on is_flag_set
 fn test_transfer_bit() {
-    use rand::{SeedableRng, Rng};
     use rand::rngs::StdRng;
+    use rand::{RngExt, SeedableRng};
 
     let mut rng: StdRng = StdRng::seed_from_u64(42);
 

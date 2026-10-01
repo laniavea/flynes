@@ -87,7 +87,7 @@ impl Cpu {
 
 #[test]
 fn test_shifts() {
-    use rand::{SeedableRng, Rng};
+    use rand::{SeedableRng, RngExt};
     use rand::rngs::StdRng;
 
     use crate::cpu::{ZERO_FLAG, NEGATIVE_FLAG};

@@ -30,7 +30,7 @@ impl Cpu {
 
 #[test]
 fn test_system_functions() {
-    use rand::{SeedableRng, Rng};
+    use rand::{SeedableRng, RngExt};
     use rand::rngs::StdRng;
 
     use crate::mappers;

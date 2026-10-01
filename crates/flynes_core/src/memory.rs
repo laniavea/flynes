@@ -1,5 +1,5 @@
-use better_assertions::inst_assert_eq;
-use log::warn;
+use better_assertions::{inst_assert, inst_assert_eq};
+use log::{error, warn};
 
 use crate::common::DataSizes;
 
@@ -63,9 +63,13 @@ pub const PRG_ROM: MemoryAllocInfo = MemoryAllocInfo {
     size: 0x8000,
 };
 
-const ALL_COMP_MEMORY_SIZE: usize = RAM.size + PPU_REGS.size
-    + APU_REGS.size + APU_IO_FUNC.size
-    + EXPANSION_ROM.size + SRAM.size + PRG_ROM.size;
+const ALL_COMP_MEMORY_SIZE: usize = RAM.size
+    + PPU_REGS.size
+    + APU_REGS.size
+    + APU_IO_FUNC.size
+    + EXPANSION_ROM.size
+    + SRAM.size
+    + PRG_ROM.size;
 
 const STACK_END: usize = 0x0100;
 const STACK_START: usize = STACK_END + 0x00FF;
@@ -85,7 +89,7 @@ pub const PPU_NAME_TABLES: MemoryAllocInfo = MemoryAllocInfo {
 pub const PPU_UNUSED_SPACE: MemoryAllocInfo = MemoryAllocInfo {
     start: 0x3000,
     end: 0x3EFF,
-    size: 0x0F00
+    size: 0x0F00,
 };
 
 pub const PPU_PALETTES: MemoryAllocInfo = MemoryAllocInfo {
@@ -131,18 +135,99 @@ impl std::fmt::Display for MemoryType {
     }
 }
 
+impl MemoryType {
+    fn display_1_data_byte(&self, data_byte: u8, pc: u16) -> String {
+        match self {
+            MemoryType::Immediate => {
+                format!("#${}", crate::common::number_to_hex(data_byte, false))
+            }
+            MemoryType::ZeroPage => {
+                format!("${}", crate::common::number_to_hex(data_byte, false))
+            }
+            MemoryType::ZeroPageX => {
+                format!("${},X", crate::common::number_to_hex(data_byte, false))
+            }
+            MemoryType::ZeroPageY => {
+                format!("${},Y", crate::common::number_to_hex(data_byte, false))
+            }
+            MemoryType::Relative => {
+                format!(
+                    "${}",
+                    crate::common::number_to_hex(
+                        crate::cpu::instructions::shared_ops::branch_pc_calc(
+                            pc.wrapping_add(1),
+                            data_byte
+                        ),
+                        false
+                    )
+                )
+            }
+            MemoryType::IndirectX => {
+                format!("(${},X)", crate::common::number_to_hex(data_byte, false))
+            }
+            MemoryType::IndirectY => {
+                format!("(${}),Y", crate::common::number_to_hex(data_byte, false))
+            }
+            _ => {
+                error!(
+                    "Different number of bytes(1) tried to be parsed for {}",
+                    self
+                );
+                "".to_string()
+            }
+        }
+    }
+
+    fn display_2_data_byte(&self, first_byte: u8, second_byte: u8) -> String {
+        let converted_address = crate::common::number_to_hex(
+            crate::cpu::Cpu::bytes_to_16bit_le_order(first_byte, second_byte),
+            false,
+        );
+
+        match self {
+            MemoryType::Absolute => format!("${}", converted_address),
+            MemoryType::AbsoluteX => format!("${},X", converted_address),
+            MemoryType::AbsoluteY => format!("${},Y", converted_address),
+            MemoryType::Indirect => format!("(${})", converted_address),
+            _ => {
+                error!(
+                    "Different number of bytes(2) tried to be parsed for {}",
+                    self
+                );
+                "".to_string()
+            }
+        }
+    }
+
+    pub fn dispay_bytes(&self, data_bytes: &[u8], pc: u16) -> String {
+        inst_assert!(data_bytes.len() <= 2);
+        match data_bytes.len() {
+            0 => "".to_string(),
+            1 => self.display_1_data_byte(data_bytes[0], pc),
+            2 => self.display_2_data_byte(data_bytes[0], data_bytes[1]),
+            _ => {
+                error!("Too many bytes({}) tried to be parsed", data_bytes.len());
+                "".to_string()
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Memory {
     prg_data: Vec<u8>,
     chr_data: Vec<u8>,
     ram: [u8; RAM.size],
     vram: [u8; DataSizes::Size2K.to_bytes()],
-    palettes_table: [u8; PPU_PALETTES.size]
+    palettes_table: [u8; PPU_PALETTES.size],
 }
 
 impl Default for Memory {
     fn default() -> Memory {
-        inst_assert_eq!(ALL_COMP_MEMORY_SIZE + RAM_MIRRORS.size + PPU_REGS_MIRRORS.size, (u16::MAX as usize) + 1);
+        inst_assert_eq!(
+            ALL_COMP_MEMORY_SIZE + RAM_MIRRORS.size + PPU_REGS_MIRRORS.size,
+            (u16::MAX as usize) + 1
+        );
         Memory {
             prg_data: Vec::new(),
             chr_data: Vec::new(),
@@ -180,14 +265,14 @@ impl Memory {
         &self.ram
     }
 
-    pub fn ram_mut(&mut self) -> &mut[u8; RAM.size] {
+    pub fn ram_mut(&mut self) -> &mut [u8; RAM.size] {
         &mut self.ram
     }
 
     pub fn vram(&self) -> &[u8; DataSizes::Size2K.to_bytes()] {
         &self.vram
     }
-    
+
     pub fn palettes_table(&self) -> &[u8; PPU_PALETTES.size] {
         &self.palettes_table
     }
@@ -228,9 +313,10 @@ impl Memory {
         let second_addr = STACK_END + (stack_pointer.wrapping_sub(1) as usize);
         self.ram[second_addr] = value as u8;
 
-        *stack_pointer = stack_pointer.wrapping_sub(2); 
+        *stack_pointer = stack_pointer.wrapping_sub(2);
 
-        if *stack_pointer >= 0xFE { // True if value was wrapped, because sub to stack_pointer already occured 
+        if *stack_pointer >= 0xFE {
+            // True if value was wrapped, because sub to stack_pointer already occured
             warn!("Stack overflow occured after 16bit PUSH");
         }
     }
@@ -240,7 +326,8 @@ impl Memory {
         *stack_pointer = stack_pointer.wrapping_add(2);
         let second_addr = STACK_END + (*stack_pointer as usize);
 
-        if *stack_pointer <= 0x01 { // True if value was wrapped, because add to stack_pointer already occured 
+        if *stack_pointer <= 0x01 {
+            // True if value was wrapped, because add to stack_pointer already occured
             warn!("Stack underflow occured after 16bit PULL");
         }
 
@@ -248,7 +335,13 @@ impl Memory {
     }
 
     pub fn stack_as_slice(&self) -> &[u8] {
-        let stack_copy:&[u8] = &self.ram[STACK_END..=STACK_START];
+        let stack_copy: &[u8] = &self.ram[STACK_END..=STACK_START];
+        inst_assert_eq!(stack_copy.len(), 256);
+        stack_copy
+    }
+
+    pub fn stack_as_slice_mut(&mut self) -> &mut [u8] {
+        let stack_copy: &mut [u8] = &mut self.ram[STACK_END..=STACK_START];
         inst_assert_eq!(stack_copy.len(), 256);
         stack_copy
     }
@@ -316,8 +409,8 @@ impl Memory {
 
 #[test]
 fn test_stack_push_pull() {
-    use rand::{SeedableRng, Rng};
     use rand::rngs::StdRng;
+    use rand::{RngExt, SeedableRng};
 
     use crate::cpu::Cpu;
 
@@ -347,7 +440,10 @@ fn test_stack_push_pull() {
             let random_data_1bit = (random_data >> 8) as u8;
             let random_data_2bit = random_data as u8;
 
-            assert_eq!(((random_data_1bit as u16) << 8) + (random_data_2bit as u16), random_data);
+            assert_eq!(
+                ((random_data_1bit as u16) << 8) + (random_data_2bit as u16),
+                random_data
+            );
 
             mem.stack_push_8bit(random_data_1bit, sp);
             assert_eq!(*sp, random_start - 1);

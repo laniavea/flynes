@@ -1,8 +1,8 @@
-use log::warn;
 use better_assertions::inst_assert;
+use log::warn;
 
-use crate::common::is_bit_set;
 use crate::bus::InterruptStatus;
+use crate::common::is_bit_set;
 
 const PPU_CTRL_REG: usize = 0;
 const PPU_MASK_REG: usize = 1;
@@ -94,9 +94,7 @@ impl PpuCtrlSettings {
 
         self.base_nametables_addr = settings % 4;
     }
-}
 
-impl PpuCtrlSettings {
     fn base_nametables_addr_to_t_reg(&self) -> u16 {
         (self.base_nametables_addr as u16) << 14
     }
@@ -129,7 +127,7 @@ impl PpuMaskSetting {
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PpuStatus {
-    value: u8
+    value: u8,
 }
 
 impl PpuStatus {
@@ -162,7 +160,6 @@ impl PpuStatus {
         self.value |= 0b0001_1111 & value_to_write;
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct Ppu {
@@ -206,7 +203,7 @@ impl Default for Ppu {
 }
 
 impl Ppu {
-    pub fn write_to_registers(&mut self, register: usize, data: u8) {
+    pub fn write_registers(&mut self, register: usize, data: u8) {
         inst_assert!((0..=8).contains(&register));
         match register {
             PPU_CTRL_REG => {
@@ -214,33 +211,35 @@ impl Ppu {
                 self.ctrl_settings.set(data);
                 self.t_register &= 0b0011_1111_1111_1111;
                 self.t_register |= self.ctrl_settings.base_nametables_addr_to_t_reg();
-            },
+            }
             PPU_MASK_REG => {
                 self.registers[PPU_MASK_REG] = data;
                 self.render_settings.set(data);
-            },
+            }
             PPU_STATUS_REG => {
                 self.ppu_status.open_bus_write(data);
                 warn!("Trying to write to $2002, which is read only, open bus write");
-            },
+            }
             OAM_ADDR_REG => {
                 self.registers[OAM_ADDR_REG] = data;
-            },
+            }
             OAM_DATA_REG => {
                 self.registers[OAM_ADDR_REG] = self.registers[OAM_ADDR_REG].wrapping_add(1);
                 self.registers[OAM_DATA_REG] = data;
-            },
+            }
             PPU_SCROLL_REG => {
-                if !self.write_toogle { // First write, w is 0 (false)
+                if !self.write_toogle {
+                    // First write, w is 0 (false)
                     self.x_scroll = data;
                     self.write_toogle = true;
                 } else {
                     self.y_scroll = data;
                 }
                 self.registers[PPU_SCROLL_REG] = data;
-            },
+            }
             PPU_ADDR_REG => {
-                if !self.write_toogle { // First write, w is 0 (false)
+                if !self.write_toogle {
+                    // First write, w is 0 (false)
                     self.t_register &= 0b1000_0000_0000_0000;
                     self.t_register |= ((data & 0b0011_1111) as u16) << 8;
                     self.write_toogle = true;
@@ -249,42 +248,48 @@ impl Ppu {
                     self.write_toogle = false;
                 }
                 self.registers[PPU_ADDR_REG] = data;
-            },
+            }
             PPU_DATA_REG => {
                 self.registers[register] = data;
-                self.t_register = self.t_register.wrapping_add(self.ctrl_settings.vram_address_inc)
-            },
+                self.t_register = self
+                    .t_register
+                    .wrapping_add(self.ctrl_settings.vram_address_inc)
+            }
             OAM_DMA_REG => {
                 self.registers[register] = data;
-            },
-            _ => unreachable!("No more registers")
+            }
+            _ => unreachable!("No more registers"),
         }
-
     }
 
-    pub fn read_from_registers(&mut self, register: usize) -> u8 {
+    pub fn read_registers(&mut self, register: usize) -> u8 {
         inst_assert!((0..=8).contains(&register));
         match register {
             0 | 1 | 3 | 5 | 6 | 8 => {
                 warn!("Trying to read from 0x200{register}, which is write only, ret 0");
                 0
-            },
+            }
             PPU_STATUS_REG => {
                 self.write_toogle = false;
                 let ppu_status_state = self.ppu_status.value;
                 self.ppu_status.clear_v_blank();
                 self.registers[PPU_STATUS_REG] = self.ppu_status.value;
                 ppu_status_state
-            },
-            OAM_DATA_REG => {
-                self.registers[OAM_DATA_REG]
-            },
+            }
+            OAM_DATA_REG => self.registers[OAM_DATA_REG],
             PPU_DATA_REG => {
-                self.t_register = self.t_register.wrapping_add(self.ctrl_settings.vram_address_inc);
+                self.t_register = self
+                    .t_register
+                    .wrapping_add(self.ctrl_settings.vram_address_inc);
                 self.registers[PPU_DATA_REG]
-            },
-            _ => unreachable!("No more registers")
+            }
+            _ => unreachable!("No more registers"),
         }
+    }
+
+    pub fn peek_registers(&self, register: usize) -> u8 {
+        inst_assert!((0..=8).contains(&register));
+        self.registers[register]
     }
 }
 
@@ -298,7 +303,7 @@ impl Ppu {
                 } else {
                     vram_address
                 }
-            },
+            }
             MirroringType::Vertical => {
                 if self.ctrl_settings.base_nametables_addr >= 2 {
                     vram_address - 0x0800
@@ -327,12 +332,10 @@ impl Ppu {
                 if self.scanline == 241 {
                     *bus_status = InterruptStatus::NMI;
                     self.render_status = Some(PpuRenderStatus::NmiTrigger);
-
                 } else if self.scanline >= 262 {
                     self.render_status = Some(PpuRenderStatus::EndOfFrame);
                     self.scanline = 0;
                 }
-
             }
             self.cycles_per_scanline += 1;
             self.cycles += 1;

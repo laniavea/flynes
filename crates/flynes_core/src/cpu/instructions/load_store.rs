@@ -1,5 +1,5 @@
-use crate::cpu::Cpu;
 use crate::bus::Bus;
+use crate::cpu::Cpu;
 use crate::cpu::instructions::shared_ops::update_zero_and_neg_flags;
 
 impl Cpu {
@@ -39,11 +39,11 @@ impl Cpu {
 
 #[test]
 fn test_load_store_ops() {
-    use rand::{SeedableRng, Rng};
     use rand::rngs::StdRng;
+    use rand::{RngExt, SeedableRng};
 
     use crate::cpu::instructions::shared_ops::is_flag_set;
-    use crate::cpu::{ZERO_FLAG, NEGATIVE_FLAG};
+    use crate::cpu::{NEGATIVE_FLAG, ZERO_FLAG};
     use crate::memory::RAM;
 
     const OFFSET: usize = 256;
@@ -83,7 +83,10 @@ fn test_load_store_ops() {
         assert_eq!(new_status, cpu.cpu_status);
 
         assert_eq!(is_flag_set(&cpu.cpu_status, ZERO_FLAG), now_value == 0);
-        assert_eq!(is_flag_set(&cpu.cpu_status, NEGATIVE_FLAG), now_value >= 0b1000_0000);
+        assert_eq!(
+            is_flag_set(&cpu.cpu_status, NEGATIVE_FLAG),
+            now_value >= 0b1000_0000
+        );
         assert_eq!([cpu.reg_a, cpu.reg_x, cpu.reg_y], [now_value as u8; 3]);
 
         cpu.op_sta(&mut bus, now_value as u16);
