@@ -68,8 +68,8 @@ fn main() {
     cpu.set_pc(0xC000);
 
     let stack_data = bus.memory_mut().stack_as_slice_mut();
-    for (stack_value_c, stack_value) in (0_u8..).zip(stack_data.iter_mut()) {
-        *stack_value = stack_value_c;
+    for (stack_value_c, stack_value) in (0_u16..).zip(stack_data.iter_mut()) {
+        *stack_value = stack_value_c.try_into().expect("Stack slice have more than 256 values");
     }
 
     let sdl_ttf = sdl3::ttf::init().unwrap();
@@ -213,6 +213,6 @@ fn update_all_cpu_data(cpu: &mut flynes_core::cpu::Cpu, frame_num: usize) {
 fn update_all_stack_data(bus: &mut flynes_core::bus::Bus) {
     let stack_data = bus.memory_mut().stack_as_slice_mut();
     for stack_value in stack_data {
-        *stack_value += 1;
+        *stack_value = stack_value.wrapping_add(1);
     }
 }
