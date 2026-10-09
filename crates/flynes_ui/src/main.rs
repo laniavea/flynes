@@ -69,7 +69,9 @@ fn main() {
 
     let stack_data = bus.memory_mut().stack_as_slice_mut();
     for (stack_value_c, stack_value) in (0_u16..).zip(stack_data.iter_mut()) {
-        *stack_value = stack_value_c.try_into().expect("Stack slice have more than 256 values");
+        *stack_value = stack_value_c
+            .try_into()
+            .expect("Stack slice have more than 256 values");
     }
 
     let sdl_ttf = sdl3::ttf::init().unwrap();
@@ -183,21 +185,21 @@ fn main() {
 }
 
 fn update_all_cpu_data(cpu: &mut flynes_core::cpu::Cpu, frame_num: usize) {
-    if frame_num.is_multiple_of(20) {
-        cpu.set_regs(
-            Some((frame_num % 256) as u8),
-            Some((frame_num % 256) as u8),
-            Some((frame_num % 256) as u8),
-        );
-    } else if frame_num.is_multiple_of(10) {
-        cpu.set_regs(
-            Some((frame_num % 256) as u8),
-            Some((frame_num % 256) as u8),
-            None,
-        );
-    } else if frame_num.is_multiple_of(3) {
+    const FRAMES_PER_REG_A_UPDATE: usize = 20;
+    const FRAMES_PER_REG_X_UPDATE: usize = 10;
+    const FRAMES_PER_REG_Y_UPDATE: usize = 3;
+
+    if frame_num.is_multiple_of(FRAMES_PER_REG_A_UPDATE) {
         cpu.set_regs(Some((frame_num % 256) as u8), None, None);
-    };
+    }
+
+    if frame_num.is_multiple_of(FRAMES_PER_REG_X_UPDATE) {
+        cpu.set_regs(None, Some((frame_num % 256) as u8), None);
+    }
+
+    if frame_num.is_multiple_of(FRAMES_PER_REG_Y_UPDATE) {
+        cpu.set_regs(None, None, Some((frame_num % 256) as u8));
+    }
 
     cpu.set_pc((frame_num % (u16::MAX as usize)) as u16);
     cpu.set_stack_pointer((frame_num % 256) as u8);
