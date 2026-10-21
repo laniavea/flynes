@@ -8,3 +8,4 @@ flynes_core = {path = "../flynes_core/", version = "0.1.0"}
 log = "0.4.29"
 pretty_env_logger = "0.5.0"
 sdl3 = {features = ["ttf"], version = "0.18.4"}
+better_assertions = {path = "../../../BetterAssertions/", version = "0.1.2", features = ["debug_max_level_slow", "max_level_slow"]}
