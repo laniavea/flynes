@@ -1,19 +1,19 @@
 use crate::layouts::CpuLayout;
-use crate::shared::{create_tex, draw_bg, draw_on_screen, generate_bg_tex, create_empty_tex};
+use crate::shared::{create_empty_tex, create_tex, draw_bg, draw_on_screen, generate_bg_tex};
 
 const TEXT_COLOR: sdl3::pixels::Color = sdl3::pixels::Color::RGB(255, 255, 255);
 const BG_COLOR: sdl3::pixels::Color = sdl3::pixels::Color::RGB(40, 40, 40);
 const CPU_LAYOUT: CpuLayout = CpuLayout::new(0.3, 0.13, 0.13, 0.14, 0.3);
 
 const FLAG_TEXT: [(&str, &str); 8] = [
-    ("C:0", "C:V"),
-    ("Z:0", "Z:V"),
-    ("I:0", "I:V"),
-    ("D:0", "D:V"),
-    ("B:0", "B:V"),
-    ("U:0", "U:V"),
-    ("O:0", "O:V"),
     ("N:0", "N:V"),
+    ("O:0", "O:V"),
+    ("U:0", "U:V"),
+    ("B:0", "B:V"),
+    ("D:0", "D:V"),
+    ("I:0", "I:V"),
+    ("Z:0", "Z:V"),
+    ("C:0", "C:V"),
 ];
 
 pub struct CachedCpuState {
@@ -318,7 +318,7 @@ fn update_cpu_status<'tex>(
         return;
     }
 
-    let mut mask = 0b0000_0001u8;
+    let mut mask = 0b1000_0000u8;
     let mut elem_id: usize = 0;
     while mask != 0 {
         if (new_cpu_status & mask != old_cpu_status & mask) || force_rerender {
@@ -332,10 +332,14 @@ fn update_cpu_status<'tex>(
                 Some(create_tex(elem_text, &TEXT_COLOR, texture_creator, font));
         }
         elem_id += 1;
-        mask <<= 1;
+        mask >>= 1;
     }
 
-    let cpu_status_text = format!("CPU status: {} - {:X}", new_cpu_status, new_cpu_status);
+    let cpu_status_text = format!(
+        "CPU status: {} - {}",
+        new_cpu_status,
+        flynes_core::common::number_to_hex(new_cpu_status, true)
+    );
     cpu_status_textures[8] = Some(create_tex(
         &cpu_status_text,
         &TEXT_COLOR,
@@ -346,7 +350,7 @@ fn update_cpu_status<'tex>(
 
     for (cpu_status_id, cpu_status_tex) in cpu_status_textures.into_iter().enumerate() {
         if let Some(new_cpu_status_tex) = cpu_status_tex {
-            textures.cpu_status[cpu_status_id] = new_cpu_status_tex 
+            textures.cpu_status[cpu_status_id] = new_cpu_status_tex
         }
     }
 }
