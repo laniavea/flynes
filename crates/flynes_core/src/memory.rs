@@ -347,66 +347,6 @@ impl Memory {
     }
 }
 
-// #[test]
-// fn test_read_write_cpu_mem() {
-//     use rand::{SeedableRng, Rng};
-//     use rand::rngs::StdRng;
-//
-//     let mut rng: StdRng = StdRng::seed_from_u64(42);
-//     let mut mem = Memory::default();
-//
-//     *mem.get_mut_8bit_value(0x0800u16) = 0x42;
-//     *mem.get_mut_8bit_value(0x1001u16) = 0x43;
-//     assert_eq!((mem.get_8bit_value(0x0000u16), mem.get_8bit_value(0x1801u16)), (0x42, 0x43));
-//
-//     *mem.get_mut_8bit_value(0x07FEu16) = 0x19;
-//     *mem.get_mut_8bit_value(0x1FFFu16) = 0x20;
-//     assert_eq!((mem.get_8bit_value(0x0FFEu16), mem.get_8bit_value(0x17FFu16)), (0x19, 0x20));
-//
-//     for now_i in 0..=7 {
-//         *mem.get_mut_8bit_value(0x2000u16 + now_i) = now_i as u8 + 1;
-//     }
-//
-//     for now_i in 0..=7 {
-//         assert_eq!(mem.get_8bit_value(0x3FF8u16 + now_i), now_i as u8 + 1);
-//     }
-//
-//     for now_i in 0..=7 {
-//         *mem.get_mut_8bit_value(0x2008u16 + now_i) = now_i as u8 + 100;
-//     }
-//
-//     for now_i in 0..=7 {
-//         assert_eq!(mem.get_8bit_value(0x2000u16 + now_i), now_i as u8 + 100);
-//     }
-//
-//     for i in 0..100_000 {
-//         // Tests for 8bit read/write
-//         let act_pointer = rng.random::<u16>();
-//         let random_v = rng.random::<u8>();
-//         let random_ram_mod = (((rng.random::<u8>() % 4) as usize) * 0x0800) as u16;
-//
-//         *mem.get_mut_8bit_value(act_pointer) = random_v;
-//
-//         if act_pointer <= 0x1FFF {
-//             let read_val = mem.get_8bit_value((act_pointer % 0x0800) + random_ram_mod);
-//             assert_eq!(read_val, random_v)
-//         } else {
-//             assert_eq!(mem.get_8bit_value(act_pointer), random_v)
-//         }
-//
-//         // Tests for 16bit read/write
-//         let upper_bit = rng.random::<u8>() as u16;
-//         let lower_bit = rng.random::<u8>() as u16;
-//         let now_data = (upper_bit << 8) + lower_bit;
-//
-//         *mem.get_mut_8bit_value(act_pointer) = lower_bit as u8;
-//         *mem.get_mut_8bit_value(act_pointer.wrapping_add(1)) = upper_bit as u8;
-//
-//         let read_data16b = mem.get_16bit_value(act_pointer);
-//         assert_eq!(now_data, read_data16b, "Exptected {now_data}, got {read_data16b}, at {act_pointer} <- i {i})");
-//     }
-// }
-
 #[test]
 fn test_stack_push_pull() {
     use rand::rngs::StdRng;
