@@ -61,7 +61,11 @@ impl CpuLayout {
         exec_info: f32,
         cpu_status: f32,
     ) -> CpuLayout {
-        assert!(header + regs + pointers + exec_info + cpu_status >= 0.0);
+        assert!(header >= 0.0);
+        assert!(regs >= 0.0);
+        assert!(pointers >= 0.0);
+        assert!(exec_info >= 0.0);
+        assert!(cpu_status >= 0.0);
         assert!(header + regs + pointers + exec_info + cpu_status <= 1.0 + 0.005);
         CpuLayout {
             header,
@@ -175,7 +179,8 @@ enum StackLayoutParts {
 impl StackLayout {
     /// Creates a stack layout with specified vertical proportions
     pub const fn new(header: f32, stack_data: f32) -> StackLayout {
-        assert!(header + stack_data >= 0.0);
+        assert!(header >= 0.0);
+        assert!(stack_data >= 0.0);
         assert!(header + stack_data <= 1.0 + 0.005);
         StackLayout { header, stack_data }
     }
