@@ -116,10 +116,10 @@ fn main() {
         .collect();
 
     let mut cpu_render_data =
-        cpu_info::CpuRenderData::new(700.0, 400.0, &texture_creator, &header_font, &p_font, &cpu);
+        cpu_info::CpuRenderData::new(1000.0, 380.0, &texture_creator, &header_font, &p_font, &cpu);
 
     let mut stack_render_data = stack_info::StackRenderData::new(
-        (1000.0, 600.0),
+        (1000.0, 580.0),
         &bus,
         &texture_creator,
         &mut canvas,
@@ -165,7 +165,7 @@ fn main() {
 
         if view_state.get_state(view_state::ViewSubjects::Cpu) {
             cpu_info::update_textures(&mut cpu_render_data, &cpu, &p_font, &texture_creator);
-            cpu_info::draw_block((1050.0, 0.0), &cpu_render_data, &mut canvas);
+            cpu_info::draw_block((1024.0, 0.0), &cpu_render_data, &mut canvas);
         }
 
         if view_state.get_state(view_state::ViewSubjects::Stack) {
@@ -176,8 +176,8 @@ fn main() {
                 &mut canvas,
                 false,
             );
-            stack_info::draw_stack_info((1050.0, 400.0), &mut stack_render_data, &mut canvas);
-            stack_info::draw_sp_pointer((1050.0, 400.0), &cpu, &mut stack_render_data, &mut canvas);
+            stack_info::draw_stack_info((1024.0, 380.0), &mut stack_render_data, &mut canvas);
+            stack_info::draw_sp_pointer((1024.0, 380.0), &cpu, &mut stack_render_data, &mut canvas);
         }
 
         canvas.present();
