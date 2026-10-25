@@ -17,6 +17,24 @@ const NES_SCREEN_SCALED_W: u32 = NES_SCREEN_WIDTH * NES_PIXEL_MULT;
 const NES_SCREEN_SCALED_H: u32 = NES_SCREEN_HEIGHT * NES_PIXEL_MULT;
 
 const TEST_UPDATE_TEX: bool = true;
+const INIT_EXEC_STATUS: ExecStatus = ExecStatus::Pause;
+
+#[derive(Clone, Copy)]
+enum ExecStatus {
+    Active,
+    Pause,
+    OnlyOne,
+}
+
+impl ExecStatus {
+    fn invert_status(&mut self) {
+        match self {
+            ExecStatus::Active => *self = ExecStatus::Pause,
+            ExecStatus::Pause => *self = ExecStatus::Active,
+            _ => ()
+        }
+    }
+}
 
 fn main() {
     let sdl_context = sdl3::init().unwrap();
@@ -113,6 +131,7 @@ fn main() {
     let mut frame_num: usize = 0;
 
     let mut view_state = crate::view_state::ViewState::default();
+    let mut execution_status = INIT_EXEC_STATUS;
 
     'running: loop {
         use std::time::Instant;
@@ -134,7 +153,11 @@ fn main() {
                     keycode: Some(key_code),
                     ..
                 } => {
-                    view_state.update_by_keypress(key_code);
+                    match key_code {
+                        sdl3::keyboard::Keycode::P => execution_status.invert_status(),
+                        sdl3::keyboard::Keycode::N => execution_status = ExecStatus::OnlyOne,
+                        _ => view_state.update_by_keypress(key_code),
+                    };
                 }
                 _ => {}
             }
@@ -161,23 +184,41 @@ fn main() {
         let tt = t.elapsed();
         println!("{tt:?}");
 
-        frame_num = frame_num.wrapping_add(1);
-
         if TEST_UPDATE_TEX {
-            update_all_cpu_data(&mut cpu, frame_num);
-            update_all_stack_data(&mut bus);
-        } else {
-            let mut exec_status: bool = false;
-            for _ in 0..22000 {
-                match cpu.execute_operation(&mut bus, false) {
-                    Ok(_) => (),
-                    Err(err) => exec_status = true,
-                }
+            match execution_status {
+                ExecStatus::Active | ExecStatus::OnlyOne => {
+                    update_all_cpu_data(&mut cpu, frame_num);
+                    update_all_stack_data(&mut bus);
+                    frame_num = frame_num.wrapping_add(1);
+
+                    if matches!(execution_status, ExecStatus::OnlyOne) {
+                        execution_status = ExecStatus::Pause;
+                    }
+                },
+                ExecStatus::Pause => ()
             }
 
-            if exec_status {
-                println!("Error was encountered")
+        } else {
+            match execution_status {
+                ExecStatus::Active => {
+                    for _ in 0..22000 {
+                        match cpu.execute_operation(&mut bus, false) {
+                            Ok(_) => (),
+                            Err(err) => eprintln!("{err}"),
+                        }
+                    }
+                },
+                ExecStatus::OnlyOne => {
+                    match cpu.execute_operation(&mut bus, false) {
+                        Ok(_) => (),
+                        Err(err) => eprintln!("{err}"),
+                    }
+                    execution_status = ExecStatus::Pause;
+                }
+                ExecStatus::Pause => (),
             }
+
+            frame_num = frame_num.wrapping_add(1);
         }
 
         ::std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
