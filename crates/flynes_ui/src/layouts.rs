@@ -1,12 +1,29 @@
+const STACK_ROWS: u8 = 16; // 16 rows, each containing 16 elements
+pub const STACK_ROWS_USIZE: usize = STACK_ROWS as usize;
+const STACK_COLS: u8 = 16; // 16 stack values per row
+pub const STACK_COLS_USIZE: usize = STACK_COLS as usize; // 16 stack values per row
+const STACK_COLS_GROUP_SIZE: u8 = 4;
+
+// 21 = 16 data columns + header(+space) + 3 spacing columns
+const STACK_DRAW_COLS: u8 = STACK_COLS + 2 + ((STACK_COLS - 1) / STACK_COLS_GROUP_SIZE);
+const STACK_COLS_HEADERLESS: u8 = STACK_DRAW_COLS - 2; // 19 = 21 drawing columns - 2 header columns
+
+/// Calculates the center based on block's full size
 const fn get_center(block_size: f32) -> f32 {
     block_size / 2.0
 }
 
+/// Calculates the size of single part, assuming all parts have equal length
 const fn get_split_size(block_size: f32, split_count: u8) -> f32 {
+    assert!(split_count != 0);
     block_size / (split_count as f32)
 }
 
+/// Calculates the relative position of the center of the target_part among the specified number of
+/// parts, assuming all parts have equal lengths.
 const fn get_part_center(target_part: u8, number_of_parts: u8) -> f32 {
+    assert!(target_part != 0);
+    assert!(target_part <= number_of_parts);
     let number_of_parts: f32 = number_of_parts as f32;
     let target_part: f32 = target_part as f32;
 
@@ -20,11 +37,13 @@ enum CpuLayoutParts {
     Regs,
     Pointers,
     ExecInfo,
+    /// The CPU status value itself
     CpuStatusVal,
+    /// CPU status represented as rows of flags; row_num must be 1 or 2
     CpuStatusRow(u8),
 }
 
-/// Represents vertical proportions for different parts of CPU block
+/// Represents the vertical proportions of the different parts of the CPU block
 pub struct CpuLayout {
     header: f32,
     regs: f32,
@@ -34,16 +53,7 @@ pub struct CpuLayout {
 }
 
 impl CpuLayout {
-    /// Creates cpu layout with vertical proportions
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use crate::CpuLayout;
-    /// // Creates cpu_layout with 30% of vertical space dedicated for header,
-    /// // 20% for regs-pointers, and 15% each for everything else
-    /// let cpu_layout = CpuLayout::new(0.3, 0.2, 0.2, 0.15, 0.15);
-    /// ```
+    /// Creates a CPU layout with specified vertical proportions
     pub const fn new(
         header: f32,
         regs: f32,
@@ -62,6 +72,7 @@ impl CpuLayout {
         }
     }
 
+    /// Returns the normalized vertical position of the specified CPU layout element
     const fn get_sum_ratio_center(&self, level: CpuLayoutParts) -> f32 {
         match level {
             CpuLayoutParts::Header => get_center(self.header),
@@ -146,6 +157,7 @@ impl CpuLayout {
     }
 }
 
+/// Represents the vertical proportions of the different sections of the stack block
 pub struct StackLayout {
     header: f32,
     stack_data: f32,
@@ -154,25 +166,32 @@ pub struct StackLayout {
 #[derive(PartialEq)]
 enum StackLayoutParts {
     Header,
+    /// Represent the layout of the entire stack data block
     StackDataBlock,
+    /// Represent the layout of each row of stack data
     StackDataRow(u8),
 }
 
 impl StackLayout {
+    /// Creates a stack layout with specified vertical proportions
     pub const fn new(header: f32, stack_data: f32) -> StackLayout {
+        assert!(header + stack_data >= 0.0);
+        assert!(header + stack_data <= 1.0 + 0.005);
         StackLayout { header, stack_data }
     }
 
+    /// Returns the normalized vertical position of the center of the specified stack layout element
     const fn get_sum_ratio_center(&self, level: StackLayoutParts) -> f32 {
         match level {
             StackLayoutParts::Header => get_center(self.header),
             StackLayoutParts::StackDataBlock => self.header + get_center(self.stack_data),
             StackLayoutParts::StackDataRow(row_id) => {
-                self.header + self.stack_data * get_part_center(row_id, 16)
+                self.header + self.stack_data * get_part_center(row_id, STACK_ROWS)
             }
         }
     }
 
+    /// Returns the center of the stack header
     pub const fn get_header(&self, size_x: f32, size_y: f32) -> (f32, f32) {
         (
             get_center(size_x),
@@ -180,16 +199,17 @@ impl StackLayout {
         )
     }
 
-    pub const fn get_stack_first_col_block(
+    /// Returns the center position and size of the first column in the stack
+    pub const fn get_stack_header_col_block(
         &self,
         size_x: f32,
         size_y: f32,
     ) -> ((f32, f32), (f32, f32)) {
-        let block_center_pos_x = size_x * get_part_center(1, 21);
+        let block_center_pos_x = size_x * get_part_center(1, STACK_DRAW_COLS);
         let block_center_pos_y =
             size_y * self.get_sum_ratio_center(StackLayoutParts::StackDataBlock);
 
-        let block_size_x = get_split_size(size_x, 21); // 21 = 16(4*4) + 4(spaces) + 1(header)
+        let block_size_x = get_split_size(size_x, STACK_DRAW_COLS);
         let block_size_y = size_y * self.stack_data;
 
         (
@@ -198,38 +218,47 @@ impl StackLayout {
         )
     }
 
-    pub const fn get_stack_first_col_elems(&self, size_x: f32, size_y: f32) -> [(f32, f32); 16] {
-        let block_size = self.get_stack_first_col_block(size_x, size_y).1;
+    /// Returns the center positions of the elements in the first column
+    /// Positions are relative to the first column block
+    pub const fn get_stack_first_col_elems(
+        &self,
+        size_x: f32,
+        size_y: f32,
+    ) -> [(f32, f32); STACK_ROWS_USIZE] {
+        let block_size = self.get_stack_header_col_block(size_x, size_y).1;
         let block_size_x = block_size.0;
         let block_size_y = block_size.1;
 
-        let mut st_headers_pos: [(f32, f32); 16] = [(0.0, 0.0); 16];
+        let mut st_headers_pos: [(f32, f32); STACK_ROWS_USIZE] = [(0.0, 0.0); STACK_ROWS_USIZE];
         let st_headers_x = get_center(block_size_x);
 
         let mut row_id = 0;
-        while row_id < 16 {
-            st_headers_pos[row_id as usize] =
-                (st_headers_x, block_size_y * get_part_center(row_id + 1, 16));
+        while row_id < STACK_ROWS {
+            st_headers_pos[row_id as usize] = (
+                st_headers_x,
+                block_size_y * get_part_center(row_id + 1, STACK_ROWS),
+            );
             row_id += 1
         }
 
         st_headers_pos
     }
 
-    pub const fn get_stack_rows_block(
+    /// Returns the size and center positions of the stack rows, excluding the first column and its spacing
+    pub const fn get_stack_rows_blocks(
         &self,
         size_x: f32,
         size_y: f32,
-    ) -> ((f32, f32), [(f32, f32); 16]) {
-        let mut st_row_pos: [(f32, f32); 16] = [(0.0, 0.0); 16];
+    ) -> ((f32, f32), [(f32, f32); STACK_ROWS_USIZE]) {
+        let mut st_row_pos: [(f32, f32); STACK_ROWS_USIZE] = [(0.0, 0.0); STACK_ROWS_USIZE];
 
-        let col_size = get_split_size(size_x, 21);
-        let st_row_size_x = col_size * (21.0 - 2.0);
-        let st_row_size_y = get_split_size(size_y * self.stack_data, 16);
+        let col_size = get_split_size(size_x, STACK_DRAW_COLS);
+        let st_row_size_x = col_size * (STACK_COLS_HEADERLESS as f32);
+        let st_row_size_y = get_split_size(size_y * self.stack_data, STACK_ROWS);
         let row_block_center_x = (col_size * 2.0) + get_center(st_row_size_x);
 
         let mut row_id = 0;
-        while row_id < 16 {
+        while row_id < STACK_ROWS {
             st_row_pos[row_id as usize] = (
                 row_block_center_x,
                 size_y * self.get_sum_ratio_center(StackLayoutParts::StackDataRow(row_id + 1)),
@@ -240,27 +269,29 @@ impl StackLayout {
         ((st_row_size_x, st_row_size_y), st_row_pos)
     }
 
+    /// Returns the size and center positions of each element in a row without a header.
+    /// Positions are relative to the row
     pub const fn get_stack_rows_elems(
         &self,
         block_size_x: f32,
         block_size_y: f32,
-    ) -> ((f32, f32), [(f32, f32); 16]) {
-        let mut st_values_pos: [(f32, f32); 16] = [(0.0, 0.0); 16];
+    ) -> ((f32, f32), [(f32, f32); STACK_COLS_USIZE]) {
+        let mut st_values_pos: [(f32, f32); STACK_COLS_USIZE] = [(0.0, 0.0); STACK_COLS_USIZE];
 
-        let elem_size_x = get_split_size(block_size_x, 19);
+        let elem_size_x = get_split_size(block_size_x, STACK_COLS_HEADERLESS);
         let elem_size_y = block_size_y;
 
         let mut col_id = 0;
         let mut true_col_id = 0;
 
-        while col_id < 19 {
-            if col_id % 5 == 4 {
+        while col_id < STACK_COLS_HEADERLESS {
+            if col_id % (STACK_COLS_GROUP_SIZE + 1) == STACK_COLS_GROUP_SIZE {
                 col_id += 1;
                 continue;
             }
 
             st_values_pos[true_col_id] = (
-                block_size_x * get_part_center(col_id + 1, 19),
+                block_size_x * get_part_center(col_id + 1, STACK_COLS_HEADERLESS),
                 get_center(elem_size_y),
             );
 

@@ -8,18 +8,18 @@ const TEXT_COLOR: sdl3::pixels::Color = sdl3::pixels::Color::RGBA(255, 255, 255,
 const BG_COLOR: sdl3::pixels::Color = sdl3::pixels::Color::RGB(80, 80, 80);
 const MARKER_BG_COLOR: sdl3::pixels::Color = sdl3::pixels::Color::RGBA(0, 255, 0, 127);
 
-const STACK_SIZE: usize = 256;
-const STACK_ROWS: usize = 16;
-const STACK_ELEMS_IN_ROW: usize = STACK_SIZE / STACK_ROWS;
+const STACK_ROWS: usize = crate::layouts::STACK_ROWS_USIZE;
+const STACK_COLS: usize = crate::layouts::STACK_ROWS_USIZE;
+const STACK_SIZE: usize = STACK_ROWS * STACK_COLS;
 
 pub struct StackLocalPos {
     header: (f32, f32),
     first_col_block_pos: (f32, f32),
     first_col_block_size: (f32, f32),
-    first_col_elems_pos: [(f32, f32); STACK_ELEMS_IN_ROW],
+    first_col_elems_pos: [(f32, f32); STACK_COLS],
     stack_rows_block_pos: [(f32, f32); STACK_ROWS],
     stack_rows_block_size: (f32, f32),
-    stack_rows_elems_pos: [(f32, f32); STACK_ELEMS_IN_ROW],
+    stack_rows_elems_pos: [(f32, f32); STACK_COLS],
     stack_rows_elems_size: (f32, f32),
 }
 
@@ -28,11 +28,11 @@ impl StackLocalPos {
         let header = STACK_LAYOUT.get_header(size_x, size_y);
 
         let (first_col_block_pos, first_col_block_size) =
-            STACK_LAYOUT.get_stack_first_col_block(size_x, size_y);
+            STACK_LAYOUT.get_stack_header_col_block(size_x, size_y);
         let first_col_elems_pos = STACK_LAYOUT.get_stack_first_col_elems(size_x, size_y);
 
         let (stack_rows_block_size, stack_rows_block_pos) =
-            STACK_LAYOUT.get_stack_rows_block(size_x, size_y);
+            STACK_LAYOUT.get_stack_rows_blocks(size_x, size_y);
         let (stack_rows_elems_size, stack_rows_elems_pos) =
             STACK_LAYOUT.get_stack_rows_elems(stack_rows_block_size.0, stack_rows_block_size.1);
 
@@ -251,9 +251,9 @@ fn update_stack_data<'tex>(
     let mut stack_value_id = 0usize;
     while stack_value_id < STACK_SIZE {
         if stack_state.stack[stack_value_id] != actual_stack[stack_value_id] {
-            let row_id = stack_value_id / STACK_ELEMS_IN_ROW;
+            let row_id = stack_value_id / STACK_COLS;
             rows_to_rerender.push(row_id);
-            stack_value_id = STACK_ELEMS_IN_ROW * (row_id + 1);
+            stack_value_id = STACK_COLS * (row_id + 1);
             continue;
         }
         stack_value_id += 1;
@@ -278,7 +278,7 @@ fn update_stack_data<'tex>(
                 texture_canvas.set_draw_color(BG_COLOR);
                 texture_canvas.clear();
                 for (value_id, new_stack_value) in stack_state.stack
-                    [row_id * STACK_ELEMS_IN_ROW..(row_id + 1) * STACK_ELEMS_IN_ROW]
+                    [row_id * STACK_COLS..(row_id + 1) * STACK_COLS]
                     .iter()
                     .enumerate()
                 {
@@ -371,8 +371,8 @@ pub fn draw_sp_pointer(
     canvas: &mut sdl3::render::Canvas<sdl3::video::Window>,
 ) {
     let sp = cpu.stack_pointer();
-    let sp_row = (sp as usize) / STACK_ELEMS_IN_ROW;
-    let sp_el = (sp as usize) % STACK_ELEMS_IN_ROW;
+    let sp_row = (sp as usize) / STACK_COLS;
+    let sp_el = (sp as usize) % STACK_COLS;
 
     let sp_mark_local_pos = stack_render_data
         .local_pos
