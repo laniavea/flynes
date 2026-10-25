@@ -17,7 +17,7 @@ const NES_SCREEN_SCALED_W: u32 = NES_SCREEN_WIDTH * NES_PIXEL_MULT;
 const NES_SCREEN_SCALED_H: u32 = NES_SCREEN_HEIGHT * NES_PIXEL_MULT;
 
 const TEST_UPDATE_TEX: bool = true;
-const INIT_EXEC_STATUS: ExecStatus = ExecStatus::Pause;
+const INIT_EXEC_STATUS: ExecStatus = ExecStatus::Active;
 
 #[derive(Clone, Copy)]
 enum ExecStatus {
@@ -31,7 +31,7 @@ impl ExecStatus {
         match self {
             ExecStatus::Active => *self = ExecStatus::Pause,
             ExecStatus::Pause => *self = ExecStatus::Active,
-            _ => ()
+            _ => (),
         }
     }
 }
@@ -194,10 +194,9 @@ fn main() {
                     if matches!(execution_status, ExecStatus::OnlyOne) {
                         execution_status = ExecStatus::Pause;
                     }
-                },
-                ExecStatus::Pause => ()
+                }
+                ExecStatus::Pause => (),
             }
-
         } else {
             match execution_status {
                 ExecStatus::Active => {
@@ -207,7 +206,7 @@ fn main() {
                             Err(err) => eprintln!("{err}"),
                         }
                     }
-                },
+                }
                 ExecStatus::OnlyOne => {
                     match cpu.execute_operation(&mut bus, false) {
                         Ok(_) => (),

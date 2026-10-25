@@ -1,3 +1,5 @@
+use flynes_core::common::number_to_hex;
+
 use crate::layouts::CpuLayout;
 use crate::shared::{create_empty_tex, create_tex, draw_bg, draw_on_screen, generate_bg_tex};
 
@@ -215,21 +217,21 @@ fn update_regs<'tex>(
     }
 
     if reg_a_state {
-        let reg_a_text = format!("REG A: {} - {:X}", reg_a, reg_a);
+        let reg_a_text = format!("REG A: {} - {}", reg_a, number_to_hex(reg_a, true));
         let reg_tex = create_tex(&reg_a_text, &TEXT_COLOR, texture_creator, font);
         cpu_state.reg_a = reg_a;
         textures.regs[0] = reg_tex;
     }
 
     if reg_x_state {
-        let reg_x_text = format!("REG X: {} - {:X}", reg_x, reg_x);
+        let reg_x_text = format!("REG X: {} - {}", reg_x, number_to_hex(reg_x, true));
         let reg_tex = create_tex(&reg_x_text, &TEXT_COLOR, texture_creator, font);
         cpu_state.reg_x = reg_x;
         textures.regs[1] = reg_tex;
     }
 
     if reg_y_state {
-        let reg_y_text = format!("REG Y: {} - {:X}", reg_y, reg_y);
+        let reg_y_text = format!("REG Y: {} - {}", reg_y, number_to_hex(reg_y, true));
         let reg_tex = create_tex(&reg_y_text, &TEXT_COLOR, texture_creator, font);
         cpu_state.reg_y = reg_y;
         textures.regs[2] = reg_tex;
@@ -255,14 +257,14 @@ fn update_pointers<'tex>(
     }
 
     if pc_status {
-        let pc_text = format!("PC: {} - {:X}", pc, pc);
+        let pc_text = format!("PC: {} - {}", pc, number_to_hex(pc, true));
         let pc_tex = create_tex(&pc_text, &TEXT_COLOR, texture_creator, font);
         textures.pc = pc_tex;
         cpu_state.pc = pc;
     }
 
     if sp_status {
-        let sp_text = format!("SP: {} - {:X}", sp, sp);
+        let sp_text = format!("SP: {} - {}", sp, number_to_hex(sp, true));
         let sp_tex = create_tex(&sp_text, &TEXT_COLOR, texture_creator, font);
         textures.sp = sp_tex;
         cpu_state.sp = sp;
