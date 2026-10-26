@@ -1,7 +1,7 @@
 extern crate sdl3;
 
 mod cpu_info;
-mod disassembly_info;
+mod instructions_log_info;
 pub mod layouts;
 mod memory_info;
 mod shared;
@@ -98,7 +98,7 @@ fn main() {
         .unwrap();
 
     let p_font = sdl_ttf
-        .load_font("/usr/share/fonts/TTF/OpenSans-Regular.ttf", 20.0)
+        .load_font("/usr/share/fonts/TTF/OpenSans-Regular.ttf", 23.0)
         .unwrap();
 
     let digits_textures: Vec<sdl3::render::Texture> = (0..256)
@@ -124,6 +124,13 @@ fn main() {
         &texture_creator,
         &mut canvas,
         &digits_textures,
+        &header_font,
+    );
+
+    let instructions_log_render_data = instructions_log_info::InstructionsLogRenderData::new(
+        536.0,
+        960.0,
+        &texture_creator,
         &header_font,
     );
 
@@ -179,6 +186,12 @@ fn main() {
             stack_info::draw_stack_info((1024.0, 380.0), &mut stack_render_data, &mut canvas);
             stack_info::draw_sp_pointer((1024.0, 380.0), &cpu, &mut stack_render_data, &mut canvas);
         }
+
+        instructions_log_info::draw_block(
+            (2024.0, 0.0),
+            &instructions_log_render_data,
+            &mut canvas,
+        );
 
         canvas.present();
         let tt = t.elapsed();

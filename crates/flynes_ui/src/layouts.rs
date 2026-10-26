@@ -307,3 +307,68 @@ impl StackLayout {
         ((elem_size_x, elem_size_y), st_values_pos)
     }
 }
+
+/// Represents the vertical proportions of the different sections of the instructions log block
+pub struct InstructionsLogLayout {
+    header: f32,
+    further_instructions: f32,
+    splitter: f32,
+    completed_instructions: f32,
+}
+
+#[derive(PartialEq)]
+enum InstructionsLogLayoutParts {
+    Header,
+    FurherInstructions,
+    Splitter,
+    CompletedInstructions,
+}
+
+impl InstructionsLogLayout {
+    /// Creates a instructions log layout with specified vertical proportions
+    pub const fn new(
+        header: f32,
+        further_instructions: f32,
+        splitter: f32,
+        completed_instructions: f32,
+    ) -> InstructionsLogLayout {
+        assert!(header >= 0.0);
+        assert!(further_instructions >= 0.0);
+        assert!(splitter >= 0.0);
+        assert!(completed_instructions >= 0.0);
+        assert!(header + further_instructions + splitter + completed_instructions <= 1.0 + 0.005);
+
+        InstructionsLogLayout {
+            header,
+            further_instructions,
+            splitter,
+            completed_instructions,
+        }
+    }
+
+    /// Returns the normalized vertical position of the specified instructions log layout element
+    const fn get_sum_ratio_center(&self, level: InstructionsLogLayoutParts) -> f32 {
+        match level {
+            InstructionsLogLayoutParts::Header => get_center(self.header),
+            InstructionsLogLayoutParts::FurherInstructions => {
+                self.header + get_center(self.further_instructions)
+            }
+            InstructionsLogLayoutParts::Splitter => {
+                self.header + self.further_instructions + get_center(self.splitter)
+            }
+            InstructionsLogLayoutParts::CompletedInstructions => {
+                self.header
+                    + self.further_instructions
+                    + self.splitter
+                    + get_center(self.completed_instructions)
+            }
+        }
+    }
+
+    pub const fn get_header(&self, size_x: f32, size_y: f32) -> (f32, f32) {
+        (
+            get_center(size_x),
+            size_y * self.get_sum_ratio_center(InstructionsLogLayoutParts::Header),
+        )
+    }
+}
