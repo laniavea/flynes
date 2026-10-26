@@ -1,11 +1,13 @@
 pub enum ViewSubjects {
     Cpu,
     Stack,
+    InstructionsLog,
 }
 
 pub struct ViewState {
     cpu_view_status: bool,
     stack_view_status: bool,
+    instructions_log_status: bool,
 }
 
 impl std::default::Default for ViewState {
@@ -13,6 +15,7 @@ impl std::default::Default for ViewState {
         ViewState {
             cpu_view_status: true,
             stack_view_status: true,
+            instructions_log_status: true,
         }
     }
 }
@@ -22,6 +25,7 @@ impl ViewState {
         match view_subject {
             ViewSubjects::Cpu => self.cpu_view_status,
             ViewSubjects::Stack => self.stack_view_status,
+            ViewSubjects::InstructionsLog => self.instructions_log_status,
         }
     }
 
@@ -29,6 +33,9 @@ impl ViewState {
         match view_subject {
             ViewSubjects::Cpu => self.cpu_view_status = !self.cpu_view_status,
             ViewSubjects::Stack => self.stack_view_status = !self.stack_view_status,
+            ViewSubjects::InstructionsLog => {
+                self.instructions_log_status = !self.instructions_log_status
+            }
         }
     }
 
@@ -36,11 +43,14 @@ impl ViewState {
         match key_code {
             sdl3::keyboard::Keycode::_1 => {
                 self.invert_state(ViewSubjects::Cpu);
-            },
+            }
             sdl3::keyboard::Keycode::_2 => {
                 self.invert_state(ViewSubjects::Stack);
             }
-            _ => ()
+            sdl3::keyboard::Keycode::_3 => {
+                self.invert_state(ViewSubjects::InstructionsLog);
+            }
+            _ => (),
         }
     }
 }

@@ -187,11 +187,13 @@ fn main() {
             stack_info::draw_sp_pointer((1024.0, 380.0), &cpu, &mut stack_render_data, &mut canvas);
         }
 
-        instructions_log_info::draw_block(
-            (2024.0, 0.0),
-            &instructions_log_render_data,
-            &mut canvas,
-        );
+        if view_state.get_state(view_state::ViewSubjects::InstructionsLog) {
+            instructions_log_info::draw_block(
+                (2024.0, 0.0),
+                &instructions_log_render_data,
+                &mut canvas,
+            );
+        }
 
         canvas.present();
         let tt = t.elapsed();
