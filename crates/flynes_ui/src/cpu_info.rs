@@ -18,7 +18,7 @@ const FLAG_TEXT: [(&str, &str); 8] = [
     ("C:0", "C:V"),
 ];
 
-pub struct CachedCpuState {
+struct CachedCpuState {
     reg_a: u8,
     reg_x: u8,
     reg_y: u8,
@@ -51,7 +51,7 @@ impl CachedCpuState {
     }
 }
 
-pub struct CpuLocalPos {
+struct CpuLocalPos {
     header: (f32, f32),
     regs: [(f32, f32); 3],
     pc: (f32, f32),
@@ -63,23 +63,23 @@ pub struct CpuLocalPos {
 
 impl CpuLocalPos {
     fn new(size_x: f32, size_y: f32) -> CpuLocalPos {
-        let header_local_pos = CPU_LAYOUT.get_header(size_x, size_y);
+        let header = CPU_LAYOUT.get_header(size_x, size_y);
 
         let pos_regs = CPU_LAYOUT.get_regs(size_x, size_y);
-        let regs_local_pos: [(f32, f32); 3] = [
+        let regs: [(f32, f32); 3] = [
             (pos_regs.1, pos_regs.0),
             (pos_regs.2, pos_regs.0),
             (pos_regs.3, pos_regs.0),
         ];
 
         let pos_pointers = CPU_LAYOUT.get_pointers(size_x, size_y);
-        let pointers_local_pos: [(f32, f32); 2] = [
+        let pointers: [(f32, f32); 2] = [
             (pos_pointers.1, pos_pointers.0),
             (pos_pointers.2, pos_pointers.0),
         ];
 
         let pos_exec_info = CPU_LAYOUT.get_exec_info(size_x, size_y);
-        let exec_info_local_pos: [(f32, f32); 2] = [
+        let exec_info: [(f32, f32); 2] = [
             (pos_exec_info.1, pos_exec_info.0),
             (pos_exec_info.2, pos_exec_info.0),
         ];
@@ -87,18 +87,18 @@ impl CpuLocalPos {
         let cpu_status_pos = CPU_LAYOUT.get_cpu_status(size_x, size_y);
 
         CpuLocalPos {
-            header: header_local_pos,
-            regs: regs_local_pos,
-            pc: pointers_local_pos[0],
-            sp: pointers_local_pos[1],
-            exec_cycles: exec_info_local_pos[0],
-            exec_instructions: exec_info_local_pos[1],
+            header,
+            regs,
+            pc: pointers[0],
+            sp: pointers[1],
+            exec_cycles: exec_info[0],
+            exec_instructions: exec_info[1],
             cpu_status: cpu_status_pos,
         }
     }
 }
 
-pub struct CpuTextures<'tex> {
+struct CpuTextures<'tex> {
     bg: sdl3::render::Texture<'tex>,
     header: sdl3::render::Texture<'tex>,
     regs: [sdl3::render::Texture<'tex>; 3],
@@ -125,7 +125,7 @@ impl<'tex> CpuTextures<'tex> {
         }
     }
 
-    pub fn new(
+    fn new(
         sizes: (f32, f32),
         cpu_state: &mut CachedCpuState,
         cpu: &flynes_core::cpu::Cpu,
@@ -146,8 +146,9 @@ impl<'tex> CpuTextures<'tex> {
 }
 
 pub struct CpuRenderData<'tex> {
-    size: (f32, f32),
-    cpu_state: CachedCpuState,
+    size_x: f32,
+    size_y: f32,
+    cached_state: CachedCpuState,
     local_pos: CpuLocalPos,
     textures: CpuTextures<'tex>,
 }
@@ -161,13 +162,13 @@ impl<'tex> CpuRenderData<'tex> {
         p_font: &sdl3::ttf::Font,
         cpu: &flynes_core::cpu::Cpu,
     ) -> CpuRenderData<'tex> {
-        let mut cpu_state = CachedCpuState::new(cpu);
+        let mut cached_state = CachedCpuState::new(cpu);
         let local_pos = CpuLocalPos::new(size_x, size_y);
 
         let sizes = (size_x, size_y);
-        let cpu_textures = CpuTextures::new(
+        let textures = CpuTextures::new(
             sizes,
-            &mut cpu_state,
+            &mut cached_state,
             cpu,
             header_font,
             p_font,
@@ -175,9 +176,10 @@ impl<'tex> CpuRenderData<'tex> {
         );
 
         CpuRenderData {
-            size: (size_x, size_y),
-            cpu_state,
-            textures: cpu_textures,
+            size_x,
+            size_y,
+            cached_state,
+            textures,
             local_pos,
         }
     }
@@ -208,13 +210,15 @@ fn update_regs<'tex>(
     let regs = cpu.get_registers_state();
     let (reg_a, reg_x, reg_y) = (regs[0], regs[1], regs[2]);
 
-    let mut reg_a_state = cpu_state.reg_a != reg_a;
-    let mut reg_x_state = cpu_state.reg_x != reg_x;
-    let mut reg_y_state = cpu_state.reg_y != reg_y;
-
-    if force_rerender {
-        (reg_a_state, reg_x_state, reg_y_state) = (true, true, true);
-    }
+    let (reg_a_state, reg_x_state, reg_y_state) = if force_rerender {
+        (true, true, true)
+    } else {
+        (
+            cpu_state.reg_a != reg_a,
+            cpu_state.reg_x != reg_x,
+            cpu_state.reg_y != reg_y,
+        )
+    };
 
     if reg_a_state {
         let reg_a_text = format!("REG A: {} - {}", reg_a, number_to_hex(reg_a, true));
@@ -249,12 +253,11 @@ fn update_pointers<'tex>(
     let pc = cpu.program_counter();
     let sp = cpu.stack_pointer();
 
-    let mut pc_status = cpu_state.pc != pc;
-    let mut sp_status = cpu_state.sp != sp;
-
-    if force_rerender {
-        (pc_status, sp_status) = (true, true);
-    }
+    let (pc_status, sp_status) = if force_rerender {
+        (true, true)
+    } else {
+        (cpu_state.pc != pc, cpu_state.sp != sp)
+    };
 
     if pc_status {
         let pc_text = format!("PC: {} - {}", pc, number_to_hex(pc, true));
@@ -282,12 +285,14 @@ fn update_exec_info<'tex>(
     let exec_cycles = cpu.exec_cycles();
     let exec_instructions = cpu.exec_instructions();
 
-    let mut exec_cycles_status = cpu_state.exec_cycles != exec_cycles;
-    let mut exec_inst_status = cpu_state.exec_instructions != exec_instructions;
-
-    if force_rerender {
-        (exec_cycles_status, exec_inst_status) = (true, true);
-    }
+    let (exec_cycles_status, exec_inst_status) = if force_rerender {
+        (true, true)
+    } else {
+        (
+            cpu_state.exec_cycles != exec_cycles,
+            cpu_state.exec_instructions != exec_instructions,
+        )
+    };
 
     if exec_cycles_status {
         let cyc_text = format!("CYC: {}", exec_cycles);
@@ -363,7 +368,7 @@ pub fn update_textures<'tex>(
     p_font: &sdl3::ttf::Font,
     texture_creator: &'tex sdl3::render::TextureCreator<sdl3::video::WindowContext>,
 ) {
-    let cpu_state = &mut render_data.cpu_state;
+    let cpu_state = &mut render_data.cached_state;
     let cpu_textures = &mut render_data.textures;
 
     update_regs(cpu_textures, cpu_state, cpu, p_font, texture_creator, false);
@@ -378,7 +383,9 @@ pub fn draw_block<'tex>(
     canvas: &mut sdl3::render::Canvas<sdl3::video::Window>,
 ) {
     let cpu_textures = &render_data.textures;
-    draw_bg(block, render_data.size, &cpu_textures.bg, canvas);
+
+    let bg_sizes = (render_data.size_x, render_data.size_y);
+    draw_bg(block, bg_sizes, &cpu_textures.bg, canvas);
 
     let header_local_pos = render_data.local_pos.header;
     draw_on_screen(block, header_local_pos, &cpu_textures.header, canvas);
