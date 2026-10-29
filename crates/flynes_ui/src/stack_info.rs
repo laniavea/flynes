@@ -9,16 +9,16 @@ const BG_COLOR: sdl3::pixels::Color = sdl3::pixels::Color::RGB(80, 80, 80);
 const MARKER_BG_COLOR: sdl3::pixels::Color = sdl3::pixels::Color::RGBA(0, 255, 0, 127);
 
 const STACK_ROWS: usize = crate::layouts::STACK_ROWS_USIZE;
-const STACK_COLS: usize = crate::layouts::STACK_ROWS_USIZE;
+const STACK_COLS: usize = crate::layouts::STACK_COLS_USIZE;
 const STACK_SIZE: usize = STACK_ROWS * STACK_COLS;
 
-pub struct StackLocalPos {
+struct StackLocalPos {
     header: (f32, f32),
     first_col_block_pos: (f32, f32),
     first_col_block_size: (f32, f32),
-    first_col_elems_pos: [(f32, f32); STACK_COLS],
-    stack_rows_block_pos: [(f32, f32); STACK_ROWS],
-    stack_rows_block_size: (f32, f32),
+    first_col_elems_pos: [(f32, f32); STACK_ROWS],
+    stack_rows_blocks_pos: [(f32, f32); STACK_ROWS],
+    stack_rows_blocks_size: (f32, f32),
     stack_rows_elems_pos: [(f32, f32); STACK_COLS],
     stack_rows_elems_size: (f32, f32),
 }
@@ -31,35 +31,37 @@ impl StackLocalPos {
             STACK_LAYOUT.get_stack_header_col_block(size_x, size_y);
         let first_col_elems_pos = STACK_LAYOUT.get_stack_first_col_elems(size_x, size_y);
 
-        let (stack_rows_block_size, stack_rows_block_pos) =
+        let (stack_rows_blocks_size, stack_rows_blocks_pos) =
             STACK_LAYOUT.get_stack_rows_blocks(size_x, size_y);
         let (stack_rows_elems_size, stack_rows_elems_pos) =
-            STACK_LAYOUT.get_stack_rows_elems(stack_rows_block_size.0, stack_rows_block_size.1);
+            STACK_LAYOUT.get_stack_rows_elems(stack_rows_blocks_size.0, stack_rows_blocks_size.1);
 
         StackLocalPos {
             header,
             first_col_block_pos,
             first_col_block_size,
             first_col_elems_pos,
-            stack_rows_block_pos,
-            stack_rows_block_size,
+            stack_rows_blocks_pos,
+            stack_rows_blocks_size,
             stack_rows_elems_pos,
             stack_rows_elems_size,
         }
     }
 
     fn get_marker_local_pos(&self, sp_row: usize, sp_el: usize) -> (f32, f32) {
-        let sp_mark_x = self.stack_rows_block_pos[sp_row].0 - (self.stack_rows_block_size.0 / 2.0)
+        let sp_mark_x = self.stack_rows_blocks_pos[sp_row].0
+            - (self.stack_rows_blocks_size.0 / 2.0)
             + self.stack_rows_elems_pos[sp_el].0;
 
-        let sp_mark_y = self.stack_rows_block_pos[sp_row].1 - (self.stack_rows_block_size.1 / 2.0)
+        let sp_mark_y = self.stack_rows_blocks_pos[sp_row].1
+            - (self.stack_rows_blocks_size.1 / 2.0)
             + self.stack_rows_elems_pos[sp_el].1;
 
         (sp_mark_x, sp_mark_y)
     }
 }
 
-pub struct CachedStackState {
+struct CachedStackState {
     stack: [u8; 256],
 }
 
@@ -77,7 +79,7 @@ impl CachedStackState {
     }
 }
 
-pub struct StackTextures<'tex> {
+struct StackTextures<'tex> {
     bg: sdl3::render::Texture<'tex>,
     header: sdl3::render::Texture<'tex>,
     first_col: sdl3::render::Texture<'tex>,
@@ -101,7 +103,7 @@ impl<'tex> StackTextures<'tex> {
         }
     }
 
-    pub fn new(
+    fn new(
         sizes: (f32, f32),
         stack_info: (&mut CachedStackState, &StackLocalPos),
         bus: &flynes_core::bus::Bus,
@@ -244,31 +246,23 @@ fn update_stack_data<'tex>(
     canvas: &mut sdl3::render::Canvas<sdl3::video::Window>,
     force_rerender: bool,
 ) {
-    let mut stack_data_tex: [Option<sdl3::render::Texture<'tex>>; 16] = [const { None }; 16];
     let actual_stack = bus.memory().stack_as_slice();
-
-    let mut rows_to_rerender: Vec<usize> = Vec::new();
     let mut stack_value_id = 0usize;
+
     while stack_value_id < STACK_SIZE {
-        if stack_state.stack[stack_value_id] != actual_stack[stack_value_id] {
-            let row_id = stack_value_id / STACK_COLS;
-            rows_to_rerender.push(row_id);
-            stack_value_id = STACK_COLS * (row_id + 1);
+        if (stack_state.stack[stack_value_id] == actual_stack[stack_value_id]) && !force_rerender {
+            stack_value_id += 1;
             continue;
         }
-        stack_value_id += 1;
-    }
-    stack_state.stack.copy_from_slice(actual_stack);
-    if force_rerender {
-        rows_to_rerender = (0..STACK_ROWS).collect();
-    }
 
-    for row_id in rows_to_rerender {
+        let row_id = stack_value_id / STACK_COLS;
+        stack_value_id = STACK_COLS * (row_id + 1); // Next iter will be on next row
+
         let mut row_texture = texture_creator
             .create_texture_target(
                 sdl3::pixels::PixelFormat::RGB24,
-                stack_local_pos.stack_rows_block_size.0 as u32,
-                stack_local_pos.stack_rows_block_size.1 as u32,
+                stack_local_pos.stack_rows_blocks_size.0 as u32,
+                stack_local_pos.stack_rows_blocks_size.1 as u32,
             )
             .unwrap();
 
@@ -277,7 +271,8 @@ fn update_stack_data<'tex>(
                 let old_color = texture_canvas.draw_color();
                 texture_canvas.set_draw_color(BG_COLOR);
                 texture_canvas.clear();
-                for (value_id, new_stack_value) in stack_state.stack
+
+                for (value_id, new_stack_value) in actual_stack
                     [row_id * STACK_COLS..(row_id + 1) * STACK_COLS]
                     .iter()
                     .enumerate()
@@ -291,18 +286,14 @@ fn update_stack_data<'tex>(
 
                     texture_canvas.copy(value_tex, None, value_target).unwrap();
                 }
+
                 texture_canvas.set_draw_color(old_color);
             })
             .unwrap();
 
-        stack_data_tex[row_id] = Some(row_texture);
+        textures.data_row[row_id] = row_texture
     }
-
-    for (stack_row_id, stack_row_tex) in stack_data_tex.into_iter().enumerate() {
-        if let Some(new_stack_row_tex) = stack_row_tex {
-            textures.data_row[stack_row_id] = new_stack_row_tex
-        }
-    }
+    stack_state.stack.copy_from_slice(actual_stack);
 }
 
 pub fn update_textures<'tex>(
@@ -354,7 +345,7 @@ pub fn draw_stack_info<'tex>(
 
     for (row_local_pos, row_tex) in stack_render_data
         .local_pos
-        .stack_rows_block_pos
+        .stack_rows_blocks_pos
         .iter()
         .zip(&stack_render_data.textures.data_row)
     {

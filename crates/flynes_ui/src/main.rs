@@ -17,7 +17,10 @@ const NES_SCREEN_SCALED_W: u32 = NES_SCREEN_WIDTH * NES_PIXEL_MULT;
 const NES_SCREEN_SCALED_H: u32 = NES_SCREEN_HEIGHT * NES_PIXEL_MULT;
 
 const TEST_UPDATE_TEX: bool = true;
+const SHOW_EXECUTION_ERR: bool = false;
 const INIT_EXEC_STATUS: ExecStatus = ExecStatus::Active;
+const AVG_FPS_WINDOW: usize = 60;
+const AVG_FPS_NOTIFY: usize = 60;
 
 #[derive(Clone, Copy)]
 enum ExecStatus {
@@ -140,11 +143,15 @@ fn main() {
     let mut view_state = crate::view_state::ViewState::default();
     let mut execution_status = INIT_EXEC_STATUS;
 
+    let mut fps_history: [std::time::Duration; AVG_FPS_WINDOW] =
+        [std::time::Duration::from_nanos(0); AVG_FPS_WINDOW];
+    let mut current_fps_history_id = 0;
+
     'running: loop {
         use std::time::Instant;
         let t = Instant::now();
-        canvas.clear();
 
+        canvas.clear();
         canvas
             .copy(&nes_screen_texture, None, nes_screen_target)
             .unwrap();
@@ -197,7 +204,14 @@ fn main() {
 
         canvas.present();
         let tt = t.elapsed();
-        println!("{tt:?}");
+        fps_history[current_fps_history_id] = tt;
+        current_fps_history_id = (current_fps_history_id + 1) % AVG_FPS_WINDOW;
+
+        if frame_num.is_multiple_of(AVG_FPS_NOTIFY) && frame_num != 0 {
+            let avg_duration =
+                fps_history.iter().sum::<std::time::Duration>() / (AVG_FPS_WINDOW as u32);
+            println!("AVG FPS: {avg_duration:?}")
+        }
 
         if TEST_UPDATE_TEX {
             match execution_status {
@@ -218,14 +232,22 @@ fn main() {
                     for _ in 0..22000 {
                         match cpu.execute_operation(&mut bus, false) {
                             Ok(_) => (),
-                            Err(err) => eprintln!("{err}"),
+                            Err(err) => {
+                                if SHOW_EXECUTION_ERR {
+                                    eprintln!("{err}")
+                                }
+                            }
                         }
                     }
                 }
                 ExecStatus::OnlyOne => {
                     match cpu.execute_operation(&mut bus, false) {
                         Ok(_) => (),
-                        Err(err) => eprintln!("{err}"),
+                        Err(err) => {
+                            if SHOW_EXECUTION_ERR {
+                                eprintln!("{err}")
+                            }
+                        }
                     }
                     execution_status = ExecStatus::Pause;
                 }
