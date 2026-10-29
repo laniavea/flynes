@@ -257,7 +257,7 @@ fn main() {
             frame_num = frame_num.wrapping_add(1);
         }
 
-        ::std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
+        std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
     }
 }
 

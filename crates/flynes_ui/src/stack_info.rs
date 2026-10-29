@@ -139,6 +139,47 @@ impl<'tex> StackTextures<'tex> {
     }
 }
 
+pub struct StackRenderData<'tex> {
+    size_x: f32,
+    size_y: f32,
+    stack_state: CachedStackState,
+    local_pos: StackLocalPos,
+    textures: StackTextures<'tex>,
+}
+
+impl<'tex> StackRenderData<'tex> {
+    pub fn new(
+        stack_size: (f32, f32),
+        bus: &flynes_core::bus::Bus,
+        texture_creator: &'tex sdl3::render::TextureCreator<sdl3::video::WindowContext>,
+        canvas: &mut sdl3::render::Canvas<sdl3::video::Window>,
+        digits_textures: &'tex Vec<sdl3::render::Texture>,
+        header_font: &sdl3::ttf::Font,
+    ) -> StackRenderData<'tex> {
+        let (size_x, size_y) = stack_size;
+
+        let local_pos = StackLocalPos::new(size_x, size_y);
+        let mut stack_state = CachedStackState::new(bus);
+        let textures = StackTextures::new(
+            stack_size,
+            (&mut stack_state, &local_pos),
+            bus,
+            digits_textures,
+            header_font,
+            texture_creator,
+            canvas,
+        );
+
+        StackRenderData {
+            size_x,
+            size_y,
+            stack_state,
+            local_pos,
+            textures,
+        }
+    }
+}
+
 fn update_static<'tex>(
     sizes: (f32, f32),
     stack_local_pos: &StackLocalPos,
@@ -196,51 +237,10 @@ fn update_static<'tex>(
     textures.marker_bg = marker_bg_texture;
 }
 
-pub struct StackRenderData<'tex> {
-    size_x: f32,
-    size_y: f32,
-    stack_state: CachedStackState,
-    local_pos: StackLocalPos,
-    textures: StackTextures<'tex>,
-}
-
-impl<'tex> StackRenderData<'tex> {
-    pub fn new(
-        stack_size: (f32, f32),
-        bus: &flynes_core::bus::Bus,
-        texture_creator: &'tex sdl3::render::TextureCreator<sdl3::video::WindowContext>,
-        canvas: &mut sdl3::render::Canvas<sdl3::video::Window>,
-        digits_textures: &'tex Vec<sdl3::render::Texture>,
-        header_font: &sdl3::ttf::Font,
-    ) -> StackRenderData<'tex> {
-        let (size_x, size_y) = stack_size;
-
-        let local_pos = StackLocalPos::new(size_x, size_y);
-        let mut stack_state = CachedStackState::new(bus);
-        let textures = StackTextures::new(
-            stack_size,
-            (&mut stack_state, &local_pos),
-            bus,
-            digits_textures,
-            header_font,
-            texture_creator,
-            canvas,
-        );
-
-        StackRenderData {
-            size_x,
-            size_y,
-            stack_state,
-            local_pos,
-            textures,
-        }
-    }
-}
-
 fn update_stack_data<'tex>(
-    stack_local_pos: &StackLocalPos,
+    local_pos: &StackLocalPos,
     textures: &mut StackTextures<'tex>,
-    stack_state: &mut CachedStackState,
+    cached_state: &mut CachedStackState,
     bus: &flynes_core::bus::Bus,
     texture_creator: &'tex sdl3::render::TextureCreator<sdl3::video::WindowContext>,
     canvas: &mut sdl3::render::Canvas<sdl3::video::Window>,
@@ -250,7 +250,7 @@ fn update_stack_data<'tex>(
     let mut stack_value_id = 0usize;
 
     while stack_value_id < STACK_SIZE {
-        if (stack_state.stack[stack_value_id] == actual_stack[stack_value_id]) && !force_rerender {
+        if (cached_state.stack[stack_value_id] == actual_stack[stack_value_id]) && !force_rerender {
             stack_value_id += 1;
             continue;
         }
@@ -261,8 +261,8 @@ fn update_stack_data<'tex>(
         let mut row_texture = texture_creator
             .create_texture_target(
                 sdl3::pixels::PixelFormat::RGB24,
-                stack_local_pos.stack_rows_blocks_size.0 as u32,
-                stack_local_pos.stack_rows_blocks_size.1 as u32,
+                local_pos.stack_rows_blocks_size.0 as u32,
+                local_pos.stack_rows_blocks_size.1 as u32,
             )
             .unwrap();
 
@@ -278,8 +278,8 @@ fn update_stack_data<'tex>(
                     .enumerate()
                 {
                     let value_tex = &textures.digits[*new_stack_value as usize];
-                    let pos_x = stack_local_pos.stack_rows_elems_pos[value_id].0;
-                    let pos_y = stack_local_pos.stack_rows_elems_pos[value_id].1;
+                    let pos_x = local_pos.stack_rows_elems_pos[value_id].0;
+                    let pos_y = local_pos.stack_rows_elems_pos[value_id].1;
 
                     let value_size = (value_tex.width(), value_tex.height());
                     let value_target = Some(create_frect((pos_x, pos_y), value_size));
@@ -293,7 +293,7 @@ fn update_stack_data<'tex>(
 
         textures.data_row[row_id] = row_texture
     }
-    stack_state.stack.copy_from_slice(actual_stack);
+    cached_state.stack.copy_from_slice(actual_stack);
 }
 
 pub fn update_textures<'tex>(
