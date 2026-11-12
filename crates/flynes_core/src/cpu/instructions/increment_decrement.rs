@@ -6,9 +6,11 @@ impl Cpu {
     /// Increments memory
     /// Possible operation HEX: 0xE6, 0xF6, 0xEE, 0xFE
     pub fn op_inc(&mut self, bus: &mut Bus, data_ref: u16) {
-        let read_data = self.read_8bit(bus, data_ref).wrapping_add(1);
+        let read_data = self.read_8bit(bus, data_ref);
         self.write_8bit(bus, data_ref, read_data);
-        update_zero_and_neg_flags(&mut self.cpu_status, read_data);
+        let modified_data = read_data.wrapping_add(1);
+        self.write_8bit(bus, data_ref, modified_data);
+        update_zero_and_neg_flags(&mut self.cpu_status, modified_data);
     }
 
     /// Increments register X
@@ -28,9 +30,11 @@ impl Cpu {
     /// Decrements memory
     /// Possible operation HEX: 0xC6, 0xD6, 0xCE, 0xDE
     pub fn op_dec(&mut self, bus: &mut Bus, data_ref: u16) {
-        let read_data = self.read_8bit(bus, data_ref).wrapping_sub(1);
+        let read_data = self.read_8bit(bus, data_ref);
         self.write_8bit(bus, data_ref, read_data);
-        update_zero_and_neg_flags(&mut self.cpu_status, read_data);
+        let modified_data = read_data.wrapping_sub(1);
+        self.write_8bit(bus, data_ref, modified_data);
+        update_zero_and_neg_flags(&mut self.cpu_status, modified_data);
     }
 
     /// Decrements register X

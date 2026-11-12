@@ -7,6 +7,7 @@ impl Cpu {
     /// Performs arithmetic shift left on memory
     pub fn op_asl(&mut self, bus: &mut Bus, data_ref: u16) {
         let mut read_data = self.read_8bit(bus, data_ref);
+        self.write_8bit(bus, data_ref, read_data);
         set_flag(&mut self.cpu_status, CARRY_FLAG, read_data & 0b1000_0000 == 0b1000_0000);
         read_data <<= 1;
         self.write_8bit(bus, data_ref, read_data);
@@ -23,6 +24,7 @@ impl Cpu {
     /// Logical shift right for memory
     pub fn op_lsr(&mut self, bus: &mut Bus, data_ref: u16) {
         let mut read_data = self.read_8bit(bus, data_ref);
+        self.write_8bit(bus, data_ref, read_data);
         set_flag(&mut self.cpu_status, CARRY_FLAG, read_data & 0b0000_0001 == 0b0000_0001);
         read_data >>= 1;
         self.write_8bit(bus, data_ref, read_data);
@@ -40,6 +42,7 @@ impl Cpu {
     pub fn op_rol(&mut self, bus: &mut Bus, data_ref: u16) {
         let previous_carry_flag = is_flag_set(&self.cpu_status, CARRY_FLAG);
         let mut read_data = self.read_8bit(bus, data_ref);
+        self.write_8bit(bus, data_ref, read_data);
         set_flag(&mut self.cpu_status, CARRY_FLAG, read_data & 0b1000_0000 == 0b1000_0000);
         read_data <<= 1;
         if previous_carry_flag {
@@ -64,6 +67,7 @@ impl Cpu {
     pub fn op_ror(&mut self, bus: &mut Bus, data_ref: u16) {
         let previous_carry_flag = is_flag_set(&self.cpu_status, CARRY_FLAG);
         let mut read_data = self.read_8bit(bus, data_ref);
+        self.write_8bit(bus, data_ref, read_data);
         set_flag(&mut self.cpu_status, CARRY_FLAG, read_data & 0b0000_0001 == 0b0000_0001);
         read_data >>= 1;
         if previous_carry_flag {
