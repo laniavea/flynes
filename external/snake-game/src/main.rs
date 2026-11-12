@@ -1,10 +1,9 @@
 use rand::RngExt;
 
-use sdl2::EventPump;
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
-use sdl2::pixels::Color;
-use sdl2::pixels::PixelFormatEnum;
+use sdl3::EventPump;
+use sdl3::event::Event;
+use sdl3::keyboard::Keycode;
+use sdl3::pixels::Color;
 
 use flynes_core::bus::Bus;
 use flynes_core::cpu::Cpu;
@@ -54,7 +53,7 @@ fn main() {
         cpu_unit.write_8bit(&mut bus, ROM_START + now_shift, *now_byte);
     }
 
-    let sdl_context = sdl2::init().unwrap();
+    let sdl_context = sdl3::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let window = video_subsystem
         .window(
@@ -66,14 +65,15 @@ fn main() {
         .build()
         .unwrap();
 
-    let mut canvas = window.into_canvas().present_vsync().build().unwrap();
+
+    let mut canvas = window.into_canvas();
     let mut event_pump = sdl_context.event_pump().unwrap();
-    canvas.set_scale(SCALE_WIDTH, SCALE_HEIGHT).unwrap();
 
     let creator = canvas.texture_creator();
     let mut texture = creator
-        .create_texture_target(PixelFormatEnum::RGB24, SNAKE_GAME_WIDTH, SNAKE_GAME_HEIGHT)
+        .create_texture_target(sdl3::pixels::PixelFormat::RGB24, SNAKE_GAME_WIDTH, SNAKE_GAME_HEIGHT)
         .unwrap();
+    texture.set_scale_mode(sdl3::render::ScaleMode::Nearest);
 
     let mut screen_state = [0u8; (SNAKE_GAME_WIDTH * 3 * SNAKE_GAME_HEIGHT) as usize];
     let mut rng = rand::rng();
@@ -146,15 +146,15 @@ fn handle_user_input(cpu_unit: &mut Cpu, bus_unit: &mut Bus, event_pump: &mut Ev
 
 fn color(byte: u8) -> Color {
     match byte {
-        0 => sdl2::pixels::Color::BLACK,
-        1 => sdl2::pixels::Color::WHITE,
-        2 | 9 => sdl2::pixels::Color::GREY,
-        3 | 10 => sdl2::pixels::Color::RED,
-        4 | 11 => sdl2::pixels::Color::GREEN,
-        5 | 12 => sdl2::pixels::Color::BLUE,
-        6 | 13 => sdl2::pixels::Color::MAGENTA,
-        7 | 14 => sdl2::pixels::Color::YELLOW,
-        _ => sdl2::pixels::Color::CYAN,
+        0 => sdl3::pixels::Color::BLACK,
+        1 => sdl3::pixels::Color::WHITE,
+        2 | 9 => sdl3::pixels::Color::GREY,
+        3 | 10 => sdl3::pixels::Color::RED,
+        4 | 11 => sdl3::pixels::Color::GREEN,
+        5 | 12 => sdl3::pixels::Color::BLUE,
+        6 | 13 => sdl3::pixels::Color::MAGENTA,
+        7 | 14 => sdl3::pixels::Color::YELLOW,
+        _ => sdl3::pixels::Color::CYAN,
     }
 }
 
