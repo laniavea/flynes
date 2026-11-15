@@ -1,5 +1,5 @@
-use crate::cpu::Cpu;
 use crate::bus::Bus;
+use crate::cpu::Cpu;
 use crate::cpu::CpuState;
 
 impl Cpu {
@@ -51,5 +51,9 @@ impl Cpu {
         self.stack_pointer &= self.read_8bit(bus, data_ref);
         self.reg_x = self.stack_pointer;
         self.reg_a = self.stack_pointer;
+    }
+
+    pub fn op_nop_mb(&mut self, bus: &mut Bus, data_ref: u16) {
+        let _ = self.read_8bit(bus, data_ref);
     }
 }

@@ -41,7 +41,9 @@ impl CPUInstByte {
             CPUInstByte::One(_) => 1,
             CPUInstByte::Two(_) => 2,
             CPUInstByte::Three(_) => 3,
-            CPUInstByte::NoOp => 0,
+            CPUInstByte::NoOp => {
+                unreachable!("Trying to convert NoOp to bytes count")
+            }
         }
     }
 }
@@ -77,6 +79,7 @@ pub enum Inst1Byte {
     SEIop,
     BRKop,
     NOPop,
+    NOPopUnf,
     RTIop,
     STPop,
 }
@@ -96,6 +99,7 @@ pub enum Inst2Byte {
     BITop,
     ADCop,
     SBCop,
+    SBCopUnf,
     CMPop,
     CPXop,
     CPYop,
@@ -204,6 +208,7 @@ impl Cpu {
             Inst1Byte::SEIop => self.op_sei(),
             Inst1Byte::BRKop => self.op_brk(bus),
             Inst1Byte::NOPop => self.op_nop(),
+            Inst1Byte::NOPopUnf => self.op_nop(),
             Inst1Byte::RTIop => self.op_rti(bus),
             Inst1Byte::STPop => self.op_stp(),
         }
@@ -223,6 +228,7 @@ impl Cpu {
             Inst2Byte::BITop => self.op_bit(bus, conv_data_ref),
             Inst2Byte::ADCop => self.op_adc(bus, conv_data_ref),
             Inst2Byte::SBCop => self.op_sbc(bus, conv_data_ref),
+            Inst2Byte::SBCopUnf => self.op_sbc(bus, conv_data_ref),
             Inst2Byte::CMPop => self.op_cmp(bus, conv_data_ref),
             Inst2Byte::CPXop => self.op_cpx(bus, conv_data_ref),
             Inst2Byte::CPYop => self.op_cpy(bus, conv_data_ref),
@@ -252,7 +258,7 @@ impl Cpu {
             Inst2Byte::RRAop => self.op_rra(bus, conv_data_ref),
             Inst2Byte::SLOop => self.op_slo(bus, conv_data_ref),
             Inst2Byte::SREop => self.op_sre(bus, conv_data_ref),
-            Inst2Byte::NOPop => self.op_nop(),
+            Inst2Byte::NOPop => self.op_nop_mb(bus, conv_data_ref),
             Inst2Byte::XAAop => self.op_xaa(bus, conv_data_ref),
             Inst2Byte::AHXop => self.op_ahx(bus, conv_data_ref),
             Inst2Byte::LAX2op => self.op_lax_other_ver(bus, conv_data_ref),
@@ -294,7 +300,7 @@ impl Cpu {
             Inst3Byte::SREop => self.op_sre(bus, conv_data_ref),
             Inst3Byte::SHXop => self.op_shx(bus, conv_data_ref),
             Inst3Byte::SHYop => self.op_shy(bus, conv_data_ref),
-            Inst3Byte::NOPop => self.op_nop(),
+            Inst3Byte::NOPop => self.op_nop_mb(bus, conv_data_ref),
             Inst3Byte::AHXop => self.op_ahx(bus, conv_data_ref),
             Inst3Byte::TASop => self.op_tas(bus, conv_data_ref),
             Inst3Byte::LASop => self.op_las(bus, conv_data_ref),
@@ -792,7 +798,7 @@ pub const fn init_cpu_operations() -> ([Operation; 256], usize) {
 
     // Dublicates SBC operation
     // SBC operation
-    ops[0xEB] = Operation::new(2, immediate, CPUInstByte::Two(Inst2Byte::SBCop));
+    ops[0xEB] = Operation::new(2, immediate, CPUInstByte::Two(Inst2Byte::SBCopUnf));
     oper_counter += 1;
 
     // Incorrect memory modes SHX(SXA, XAS), SHY(SYA, SAY) operations
@@ -803,12 +809,12 @@ pub const fn init_cpu_operations() -> ([Operation; 256], usize) {
 
     // NOPs opeartions
     // NOP Implied operatoins
-    ops[0x1A] = ops[0xEA];
-    ops[0x3A] = ops[0xEA];
-    ops[0x5A] = ops[0xEA];
-    ops[0x7A] = ops[0xEA];
-    ops[0xDA] = ops[0xEA];
-    ops[0xFA] = ops[0xEA];
+    ops[0x1A] = Operation::new(2, implied, CPUInstByte::One(Inst1Byte::NOPopUnf));
+    ops[0x3A] = ops[0x1A];
+    ops[0x5A] = ops[0x1A];
+    ops[0x7A] = ops[0x1A];
+    ops[0xDA] = ops[0x1A];
+    ops[0xFA] = ops[0x1A];
     oper_counter += 6;
 
     // NOP Immediate opeartions
@@ -923,6 +929,7 @@ impl std::fmt::Display for Inst1Byte {
             Inst1Byte::SEIop => write!(f, "SEI"),
             Inst1Byte::BRKop => write!(f, "BRK"),
             Inst1Byte::NOPop => write!(f, "NOP"),
+            Inst1Byte::NOPopUnf => write!(f, "*NOP"),
             Inst1Byte::RTIop => write!(f, "RTI"),
             Inst1Byte::STPop => write!(f, "STP"),
         }
@@ -944,6 +951,7 @@ impl std::fmt::Display for Inst2Byte {
             Inst2Byte::BITop => write!(f, "BIT"),
             Inst2Byte::ADCop => write!(f, "ADC"),
             Inst2Byte::SBCop => write!(f, "SBC"),
+            Inst2Byte::SBCopUnf => write!(f, "*SBC"),
             Inst2Byte::CMPop => write!(f, "CMP"),
             Inst2Byte::CPXop => write!(f, "CPX"),
             Inst2Byte::CPYop => write!(f, "CPY"),
@@ -961,22 +969,22 @@ impl std::fmt::Display for Inst2Byte {
             Inst2Byte::BPLop => write!(f, "BPL"),
             Inst2Byte::BVCop => write!(f, "BVC"),
             Inst2Byte::BVSop => write!(f, "BVS"),
-            Inst2Byte::ALRop => write!(f, "ALR"),
-            Inst2Byte::ANCop => write!(f, "ANC"),
-            Inst2Byte::ARRop => write!(f, "ARR"),
-            Inst2Byte::AXSop => write!(f, "AXS"),
-            Inst2Byte::LAXop => write!(f, "LAX"),
-            Inst2Byte::SAXop => write!(f, "SAX"),
-            Inst2Byte::DCPop => write!(f, "DCP"),
-            Inst2Byte::ISCop => write!(f, "ISC"),
-            Inst2Byte::RLAop => write!(f, "RLA"),
-            Inst2Byte::RRAop => write!(f, "RRA"),
-            Inst2Byte::SLOop => write!(f, "SLO"),
-            Inst2Byte::SREop => write!(f, "SRE"),
-            Inst2Byte::NOPop => write!(f, "NOP"),
-            Inst2Byte::XAAop => write!(f, "XAA"),
-            Inst2Byte::AHXop => write!(f, "AHX"),
-            Inst2Byte::LAX2op => write!(f, "LAX2"),
+            Inst2Byte::ALRop => write!(f, "*ALR"),
+            Inst2Byte::ANCop => write!(f, "*ANC"),
+            Inst2Byte::ARRop => write!(f, "*ARR"),
+            Inst2Byte::AXSop => write!(f, "*AXS"),
+            Inst2Byte::LAXop => write!(f, "*LAX"),
+            Inst2Byte::SAXop => write!(f, "*SAX"),
+            Inst2Byte::DCPop => write!(f, "*DCP"),
+            Inst2Byte::ISCop => write!(f, "*ISB"),
+            Inst2Byte::RLAop => write!(f, "*RLA"),
+            Inst2Byte::RRAop => write!(f, "*RRA"),
+            Inst2Byte::SLOop => write!(f, "*SLO"),
+            Inst2Byte::SREop => write!(f, "*SRE"),
+            Inst2Byte::NOPop => write!(f, "*NOP"),
+            Inst2Byte::XAAop => write!(f, "*XAA"),
+            Inst2Byte::AHXop => write!(f, "*AHX"),
+            Inst2Byte::LAX2op => write!(f, "*LAX2"),
         }
     }
 }
@@ -1007,20 +1015,20 @@ impl std::fmt::Display for Inst3Byte {
             Inst3Byte::RORop => write!(f, "ROR"),
             Inst3Byte::JMPop => write!(f, "JMP"),
             Inst3Byte::JSRop => write!(f, "JSR"),
-            Inst3Byte::LAXop => write!(f, "LAX"),
-            Inst3Byte::SAXop => write!(f, "SAX"),
-            Inst3Byte::DCPop => write!(f, "DCP"),
-            Inst3Byte::ISCop => write!(f, "ISC"),
-            Inst3Byte::RLAop => write!(f, "RLA"),
-            Inst3Byte::RRAop => write!(f, "RRA"),
-            Inst3Byte::SLOop => write!(f, "SLO"),
-            Inst3Byte::SREop => write!(f, "SRE"),
-            Inst3Byte::SHXop => write!(f, "SHX"),
-            Inst3Byte::SHYop => write!(f, "SHY"),
-            Inst3Byte::NOPop => write!(f, "NOP"),
-            Inst3Byte::AHXop => write!(f, "AHX"),
-            Inst3Byte::TASop => write!(f, "TAS"),
-            Inst3Byte::LASop => write!(f, "LAS"),
+            Inst3Byte::LAXop => write!(f, "*LAX"),
+            Inst3Byte::SAXop => write!(f, "*SAX"),
+            Inst3Byte::DCPop => write!(f, "*DCP"),
+            Inst3Byte::ISCop => write!(f, "*ISB"),
+            Inst3Byte::RLAop => write!(f, "*RLA"),
+            Inst3Byte::RRAop => write!(f, "*RRA"),
+            Inst3Byte::SLOop => write!(f, "*SLO"),
+            Inst3Byte::SREop => write!(f, "*SRE"),
+            Inst3Byte::SHXop => write!(f, "*SHX"),
+            Inst3Byte::SHYop => write!(f, "*SHY"),
+            Inst3Byte::NOPop => write!(f, "*NOP"),
+            Inst3Byte::AHXop => write!(f, "*AHX"),
+            Inst3Byte::TASop => write!(f, "*TAS"),
+            Inst3Byte::LASop => write!(f, "*LAS"),
         }
     }
 }
@@ -1039,16 +1047,5 @@ impl std::fmt::Display for CPUInstByte {
 impl std::fmt::Display for Operation {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{} at {}", self.op_name, self.memory_type)
-    }
-}
-
-impl Operation {
-    pub fn raw_disassembly(&self, pc: u16, bytes: &[u8]) -> String {
-        let mut op_disassembly = format!("{}", self.op_name);
-        if !bytes.is_empty() {
-            op_disassembly.push_str(&format!(" {}", self.memory_type.dispay_bytes(bytes, pc)));
-        }
-
-        op_disassembly
     }
 }

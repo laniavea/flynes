@@ -53,26 +53,6 @@ impl<'tex> InstructionsLogTextures<'tex> {
     }
 }
 
-fn update_static<'tex>(
-    sizes: (f32, f32),
-    textures: &mut InstructionsLogTextures<'tex>,
-    header_font: &sdl3::ttf::Font,
-    texture_creator: &'tex sdl3::render::TextureCreator<sdl3::video::WindowContext>,
-) {
-    let sizes_u32 = (sizes.0 as u32, sizes.1 as u32);
-    let bg_texture = generate_bg_tex(sizes_u32, BG_COLOR, texture_creator);
-
-    let header_texture = create_tex(
-        "INSTRUCTION LOG[3]",
-        &TEXT_COLOR,
-        texture_creator,
-        header_font,
-    );
-
-    textures.bg = bg_texture;
-    textures.header = header_texture;
-}
-
 pub struct InstructionsLogRenderData<'tex> {
     size_x: f32,
     size_y: f32,
@@ -102,6 +82,38 @@ impl<'tex> InstructionsLogRenderData<'tex> {
             textures,
         }
     }
+}
+
+fn update_static<'tex>(
+    sizes: (f32, f32),
+    textures: &mut InstructionsLogTextures<'tex>,
+    header_font: &sdl3::ttf::Font,
+    texture_creator: &'tex sdl3::render::TextureCreator<sdl3::video::WindowContext>,
+) {
+    let sizes_u32 = (sizes.0 as u32, sizes.1 as u32);
+    let bg_texture = generate_bg_tex(sizes_u32, BG_COLOR, texture_creator);
+
+    let header_texture = create_tex(
+        "INSTRUCTION LOG[3]",
+        &TEXT_COLOR,
+        texture_creator,
+        header_font,
+    );
+
+    textures.bg = bg_texture;
+    textures.header = header_texture;
+}
+
+fn update_instruction_log_data<'tex>(
+    local_pos: &InstructionsLogLocalPos,
+    textures: &mut InstructionsLogTextures<'tex>,
+    cached_state: &mut CachedInstructionLogState,
+    bus: &flynes_core::bus::Bus,
+    texture_creator: &'tex sdl3::render::TextureCreator<sdl3::video::WindowContext>,
+    canvas: &mut sdl3::render::Canvas<sdl3::video::Window>,
+    force_rerender: bool,
+) {
+
 }
 
 pub fn draw_block<'tex>(

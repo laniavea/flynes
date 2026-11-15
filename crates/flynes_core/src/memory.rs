@@ -1,5 +1,5 @@
-use better_assertions::{inst_assert, inst_assert_eq};
-use log::{error, warn};
+use better_assertions::inst_assert_eq;
+use log::warn;
 
 use crate::common::DataSizes;
 
@@ -131,84 +131,6 @@ impl std::fmt::Display for MemoryType {
             MemoryType::Indirect => write!(f, "Indirect"),
             MemoryType::IndirectX => write!(f, "Indirect X"),
             MemoryType::IndirectY => write!(f, "Indirect Y"),
-        }
-    }
-}
-
-impl MemoryType {
-    fn display_1_data_byte(&self, data_byte: u8, pc: u16) -> String {
-        match self {
-            MemoryType::Immediate => {
-                format!("#${}", crate::common::number_to_hex(data_byte, false))
-            }
-            MemoryType::ZeroPage => {
-                format!("${}", crate::common::number_to_hex(data_byte, false))
-            }
-            MemoryType::ZeroPageX => {
-                format!("${},X", crate::common::number_to_hex(data_byte, false))
-            }
-            MemoryType::ZeroPageY => {
-                format!("${},Y", crate::common::number_to_hex(data_byte, false))
-            }
-            MemoryType::Relative => {
-                format!(
-                    "${}",
-                    crate::common::number_to_hex(
-                        crate::cpu::instructions::shared_ops::branch_pc_calc(
-                            pc.wrapping_add(1),
-                            data_byte
-                        ),
-                        false
-                    )
-                )
-            }
-            MemoryType::IndirectX => {
-                format!("(${},X)", crate::common::number_to_hex(data_byte, false))
-            }
-            MemoryType::IndirectY => {
-                format!("(${}),Y", crate::common::number_to_hex(data_byte, false))
-            }
-            _ => {
-                error!(
-                    "Different number of bytes(1) tried to be parsed for {}",
-                    self
-                );
-                "".to_string()
-            }
-        }
-    }
-
-    fn display_2_data_byte(&self, first_byte: u8, second_byte: u8) -> String {
-        let converted_address = crate::common::number_to_hex(
-            crate::cpu::Cpu::bytes_to_16bit_le_order(first_byte, second_byte),
-            false,
-        );
-
-        match self {
-            MemoryType::Absolute => format!("${}", converted_address),
-            MemoryType::AbsoluteX => format!("${},X", converted_address),
-            MemoryType::AbsoluteY => format!("${},Y", converted_address),
-            MemoryType::Indirect => format!("(${})", converted_address),
-            _ => {
-                error!(
-                    "Different number of bytes(2) tried to be parsed for {}",
-                    self
-                );
-                "".to_string()
-            }
-        }
-    }
-
-    pub fn dispay_bytes(&self, data_bytes: &[u8], pc: u16) -> String {
-        inst_assert!(data_bytes.len() <= 2);
-        match data_bytes.len() {
-            0 => "".to_string(),
-            1 => self.display_1_data_byte(data_bytes[0], pc),
-            2 => self.display_2_data_byte(data_bytes[0], data_bytes[1]),
-            _ => {
-                error!("Too many bytes({}) tried to be parsed", data_bytes.len());
-                "".to_string()
-            }
         }
     }
 }

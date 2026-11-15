@@ -3,7 +3,7 @@ use log::{debug, error, info, warn};
 
 use crate::bus::{Bus, InterruptStatus};
 use crate::common;
-use crate::debug_info::CpuDebugInfo;
+use crate::debug_info::CpuDebug;
 use crate::memory::MemoryType;
 use instructions::{CPUInstByte, Operation};
 
@@ -41,7 +41,7 @@ pub struct Cpu {
     state: CpuState,
     exec_cycles: usize,
     exec_instructions: usize,
-    debug_info: Option<CpuDebugInfo>,
+    debug_info: Option<CpuDebug>,
 }
 
 impl Default for Cpu {
@@ -134,7 +134,7 @@ impl Cpu {
         self.program_counter
     }
 
-    pub fn debug_info(&self) -> &Option<CpuDebugInfo> {
+    pub fn debug_info(&self) -> &Option<CpuDebug> {
         &self.debug_info
     }
 
@@ -167,19 +167,32 @@ impl Cpu {
             MemoryType::ZeroPage => value as u16,
             MemoryType::ZeroPageX => {
                 let value = value.wrapping_add(self.reg_x);
+                if let Some(debug_info) = self.debug_info.as_mut() {
+                    debug_info.set_decoding_register_val(value);
+                }
                 value as u16
             }
             MemoryType::ZeroPageY => {
                 let value = value.wrapping_add(self.reg_y);
+                if let Some(debug_info) = self.debug_info.as_mut() {
+                    debug_info.set_decoding_register_val(value);
+                }
                 value as u16
             }
             MemoryType::Relative => self.program_counter,
             MemoryType::IndirectX => {
                 let value = value.wrapping_add(self.reg_x);
+                if let Some(debug_info) = self.debug_info.as_mut() {
+                    debug_info.set_decoding_register_val(value);
+                }
                 self.read_16bit_zp_wrap(bus, value as u16)
             }
             MemoryType::IndirectY => {
                 let value_data = self.read_16bit_zp_wrap(bus, value as u16);
+                if let Some(debug_info) = self.debug_info.as_mut() {
+                    debug_info.set_decoding_register_val(self.reg_y);
+                    debug_info.set_decoding_sub_res(value_data);
+                }
                 value_data.wrapping_add(self.reg_y as u16)
             }
             _ => unreachable!(),
@@ -199,8 +212,18 @@ impl Cpu {
 
         match mt {
             MemoryType::Absolute => value,
-            MemoryType::AbsoluteX => value.wrapping_add(self.reg_x as u16),
-            MemoryType::AbsoluteY => value.wrapping_add(self.reg_y as u16),
+            MemoryType::AbsoluteX => {
+                if let Some(mut debug_info) = self.debug_info {
+                    debug_info.set_decoding_register_val(self.reg_x);
+                }
+                value.wrapping_add(self.reg_x as u16)
+            }
+            MemoryType::AbsoluteY => {
+                if let Some(mut debug_info) = self.debug_info {
+                    debug_info.set_decoding_register_val(self.reg_y);
+                }
+                value.wrapping_add(self.reg_y as u16)
+            }
             MemoryType::Indirect => self.read_16bit_jmp_bug(bus, value),
             _ => unreachable!(),
         }
@@ -307,16 +330,19 @@ impl Cpu {
         bus: &mut Bus,
         need_debug: bool,
     ) -> Result<(), &'static str> {
-        bus.set_debug(need_debug);
+        bus.init_debug(need_debug);
 
         let op_byte = self.read_8bit(bus, self.program_counter);
         let op_inst = self.instruction_set[op_byte as usize];
 
+        if need_debug {
+            self.debug_info = Some(CpuDebug::new(self.program_counter, op_inst));
+        }
+
         match op_inst.op_name() {
             CPUInstByte::One(inst_entry) => {
                 if need_debug {
-                    self.debug_info =
-                        Some(CpuDebugInfo::new(self.program_counter, op_inst, None, None));
+                    bus.debug_info_mut().as_mut().unwrap().end_fetch();
                 }
 
                 self.program_counter = self.program_counter.wrapping_add(1);
@@ -330,37 +356,53 @@ impl Cpu {
             CPUInstByte::Two(inst_entry) => {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 let data_byte = self.read_8bit(bus, self.program_counter);
-                let target_byte = self.conv_1byte_address(op_inst.memory_type(), data_byte, bus);
+                if need_debug {
+                    bus.debug_info_mut().as_mut().unwrap().end_fetch();
+                }
+
+                let decoded_address =
+                    self.conv_1byte_address(op_inst.memory_type(), data_byte, bus);
 
                 if need_debug {
-                    self.debug_info = Some(CpuDebugInfo::new(
-                        self.program_counter,
-                        op_inst,
-                        Some(data_byte),
-                        None,
-                    ));
+                    bus.debug_info_mut().as_mut().unwrap().end_decode();
+                    self.debug_info.as_mut().unwrap().set_first_byte(data_byte);
+                    self.debug_info
+                        .as_mut()
+                        .unwrap()
+                        .set_decoding_result(decoded_address);
                 }
 
                 self.program_counter = self.program_counter.wrapping_add(1);
-                self.execute_inst_2_byte(bus, inst_entry, target_byte);
+                self.execute_inst_2_byte(bus, inst_entry, decoded_address);
             }
             CPUInstByte::Three(inst_entry) => {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 let data_bytes = self.read_16bit(bus, self.program_counter);
-
                 if need_debug {
-                    self.debug_info = Some(CpuDebugInfo::new(
-                        self.program_counter,
-                        op_inst,
-                        Some((data_bytes & 0b0000_0000_1111_1111) as u8),
-                        Some((data_bytes >> 8) as u8),
-                    ));
+                    bus.debug_info_mut().as_mut().unwrap().end_fetch();
                 }
-                let target_address =
+
+                let decoded_address =
                     self.conv_2byte_address(op_inst.memory_type(), data_bytes, bus);
 
+                if need_debug {
+                    bus.debug_info_mut().as_mut().unwrap().end_decode();
+                    self.debug_info
+                        .as_mut()
+                        .unwrap()
+                        .set_first_byte((data_bytes & 0b0000_0000_1111_1111) as u8);
+                    self.debug_info
+                        .as_mut()
+                        .unwrap()
+                        .set_second_byte((data_bytes >> 8) as u8);
+                    self.debug_info
+                        .as_mut()
+                        .unwrap()
+                        .set_decoding_result(decoded_address);
+                }
+
                 self.program_counter = self.program_counter.wrapping_add(2);
-                self.execute_inst_3_byte(bus, inst_entry, target_address);
+                self.execute_inst_3_byte(bus, inst_entry, decoded_address);
             }
             CPUInstByte::NoOp => {
                 error!(
@@ -381,42 +423,5 @@ impl Cpu {
         self.exec_instructions += 1;
 
         Ok(())
-    }
-
-    pub fn decode_next_instructions(&mut self, bus: &mut Bus, pc: u16, instr_num: usize) -> Vec<String> {
-        let mut target_pc = pc;
-        let mut res_decode: Vec<String> = vec![];
-
-        for _ in 0..instr_num {
-            let op_byte = self.peek_8bit(bus, target_pc);
-            let op_inst = self.instruction_set[op_byte as usize];
-
-            let bytes: Vec<u8> = match op_inst.op_name() {
-                CPUInstByte::One(_) => vec![],
-                CPUInstByte::Two(_) => {
-                    target_pc = target_pc.wrapping_add(1);
-                    vec![(self.peek_8bit(bus, target_pc))]
-                }
-                CPUInstByte::Three(_) => {
-                    target_pc = target_pc.wrapping_add(1);
-                    let mut bytes = vec![self.peek_8bit(bus, target_pc)];
-                    target_pc = target_pc.wrapping_add(1);
-                    bytes.push(self.peek_8bit(bus, target_pc));
-                    bytes
-                }
-                CPUInstByte::NoOp => {
-                    error!(
-                        "Trying to parse NoOp instruction at {} with hex {}",
-                        common::number_to_hex(pc, true),
-                        common::number_to_hex(op_byte, true)
-                    );
-                    vec![]
-                }
-            };
-
-            res_decode.push(op_inst.raw_disassembly(pc, &bytes));
-        }
-
-        res_decode
     }
 }

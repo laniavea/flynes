@@ -11,7 +11,7 @@ CYCLES = [86, 9] # to 94 inc
 
 def main():
     ideal_log_path = "./nestest_full.log"
-    check_log_path, columns_to_check = get_by_version(1)
+    check_log_path, columns_to_check = get_by_version(2)
 
     with open(ideal_log_path) as il:
         ideal_columns = take_columns_ideal(columns_to_check, il.read())
@@ -21,7 +21,7 @@ def main():
 
     assert len(ideal_columns[0]) == len(check_columns[0]), "Number of columns is different"
 
-    row_counter = 0
+    row_counter = 1
     fails = 0
     tolerance = 10
 
@@ -62,6 +62,18 @@ def get_by_version(version):
             STACK_POINTER
         ]
         return "./nestest_v1.log", columns_to_check
+    elif version == 2:
+        columns_to_check = [
+            PC,
+            FETCHED_BYTES,
+            OP_ASSEMBLY,
+            REG_A,
+            REG_X,
+            REG_Y,
+            CPU_STATUS,
+            STACK_POINTER
+        ]
+        return "./nestest_v2.log", columns_to_check
     else:
         raise ValueError("Unknown version")
 
@@ -81,7 +93,7 @@ def take_columns_ideal(cols_to_take, ideal_log):
 def take_columns_check(check_log):
     parsed_log = []
     for now_str in check_log.split("\n"):
-        parsed_log.append(list(map(lambda x: x.strip(), now_str.strip().split("\t"))))
+        parsed_log.append([x.strip() for x in now_str.strip().split("\t")])
         parsed_log[-1].append(now_str.strip())
 
     return parsed_log

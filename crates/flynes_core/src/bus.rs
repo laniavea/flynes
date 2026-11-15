@@ -1,7 +1,7 @@
 use better_assertions::inst_assert;
 use log::warn;
 
-use crate::debug_info::{BusDataSource, BusDebugInfo, BusOperationInfo};
+use crate::debug_info::{BusDataSource, BusDebug, BusOperationInfo, BusRWInfo};
 use crate::mappers::{MapperRW, Mappers};
 use crate::memory::Memory;
 use crate::memory::{
@@ -31,7 +31,7 @@ pub struct Bus {
     ppu: Ppu,
     mapper: Mappers,
     interrupt_status: InterruptStatus,
-    debug_info: Option<Vec<BusDebugInfo>>,
+    debug_info: Option<BusDebug>,
 }
 
 impl Bus {
@@ -55,16 +55,24 @@ impl Bus {
         self.interrupt_status = new_interrupt_status;
     }
 
-    pub fn set_debug(&mut self, need_debug: bool) {
+    pub fn init_debug(&mut self, need_debug: bool) {
         if need_debug {
             if let Some(debug_info) = self.debug_info.as_mut() {
-                debug_info.clear();
+                debug_info.clear_operations();
             } else {
-                self.debug_info = Some(vec![])
+                self.debug_info = Some(BusDebug::new());
             }
         } else if self.debug_info.is_some() {
             self.debug_info = None;
         }
+    }
+
+    pub fn debug_info(&self) -> &Option<BusDebug> {
+        &self.debug_info
+    }
+
+    pub fn debug_info_mut(&mut self) -> &mut Option<BusDebug> {
+        &mut self.debug_info
     }
 }
 
@@ -78,12 +86,12 @@ impl Bus {
         read_value: u8,
     ) {
         if let Some(debug_info) = self.debug_info.as_mut() {
-            debug_info.push(BusDebugInfo::new(
+            debug_info.add_op(BusOperationInfo::new(
                 *actual_cpu_cycles,
                 requested_address as u16,
                 data_source,
-                BusOperationInfo::Read(read_value),
-            ))
+                BusRWInfo::Read(read_value),
+            ));
         }
     }
 
@@ -93,14 +101,14 @@ impl Bus {
         actual_cpu_cycles: &usize,
         requested_address: usize,
         data_source: BusDataSource,
-        write_value: u8,
+        write_value: (u8, u8),
     ) {
         if let Some(debug_info) = self.debug_info.as_mut() {
-            debug_info.push(BusDebugInfo::new(
+            debug_info.add_op(BusOperationInfo::new(
                 *actual_cpu_cycles,
                 requested_address as u16,
                 data_source,
-                BusOperationInfo::Write(write_value),
+                BusRWInfo::Write(write_value),
             ))
         }
     }
@@ -169,7 +177,14 @@ impl Bus {
 
         if self.debug_info.is_some() {
             let data_source: BusDataSource = address_cpu.into();
-            self.debug_info_write_cpu(cpu_cycles, requested_address.into(), data_source, value);
+            let value_before = self.peek_8bit_cpu(requested_address);
+            let write_data = (value_before, value);
+            self.debug_info_write_cpu(
+                cpu_cycles,
+                requested_address.into(),
+                data_source,
+                write_data,
+            );
         }
 
         match address_cpu {
@@ -199,8 +214,8 @@ impl Bus {
         match address_cpu {
             AddressCpu::RAM(address) => self.memory.ram()[address],
             AddressCpu::PpuRegs(address) => self.ppu.peek_registers(address),
-            AddressCpu::ApuRegs(address) => {
-                (address % 2) as u8 //FIX: Add APU and IO registers.
+            AddressCpu::ApuRegs(_address) => {
+                0xFF_u8 //FIX: Add APU and IO registers.
             }
             // FIX: Change to peek
             AddressCpu::ROM(address) => self.mapper.read(address, self.memory.prg_data()),
