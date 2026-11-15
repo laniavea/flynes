@@ -9,6 +9,8 @@ STACK_POINTER = [68, 5] # to 72 inc
 PPU = [74, 11] # to 84 inc
 CYCLES = [86, 9] # to 94 inc
 
+NEED_ISB_REPLACE = True;
+
 def main():
     ideal_log_path = "./nestest_full.log"
     check_log_path, columns_to_check = get_by_version(2)
@@ -93,10 +95,17 @@ def take_columns_ideal(cols_to_take, ideal_log):
 def take_columns_check(check_log):
     parsed_log = []
     for now_str in check_log.split("\n"):
+        if NEED_ISB_REPLACE:
+            now_str = isb_fix(now_str)
         parsed_log.append([x.strip() for x in now_str.strip().split("\t")])
         parsed_log[-1].append(now_str.strip())
 
     return parsed_log
+
+def isb_fix(str_to_check):
+    if "*ISC" in str_to_check:
+        str_to_check = str_to_check.replace("*ISC", "*ISB")
+    return str_to_check
 
 if __name__ == "__main__":
     main()
