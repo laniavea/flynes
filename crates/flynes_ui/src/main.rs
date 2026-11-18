@@ -16,7 +16,7 @@ const NES_SCREEN_HEIGHT: u32 = 240;
 const NES_SCREEN_SCALED_W: u32 = NES_SCREEN_WIDTH * NES_PIXEL_MULT;
 const NES_SCREEN_SCALED_H: u32 = NES_SCREEN_HEIGHT * NES_PIXEL_MULT;
 
-const TEST_UPDATE_TEX: bool = true;
+const TEST_UPDATE_TEX: bool = false;
 const SHOW_EXECUTION_ERR: bool = false;
 const INIT_EXEC_STATUS: ExecStatus = ExecStatus::Active;
 const AVG_FPS_WINDOW: usize = 60;
@@ -229,13 +229,19 @@ fn main() {
         } else {
             match execution_status {
                 ExecStatus::Active => {
-                    for _ in 0..22000 {
-                        match cpu.execute_operation(&mut bus, false) {
-                            Ok(_) => (),
-                            Err(err) => {
-                                if SHOW_EXECUTION_ERR {
-                                    eprintln!("{err}")
-                                }
+                    let exec_info = cpu.execute_n_operations(&mut bus, 1, 15);
+                    match exec_info {
+                        Ok(debug_info) => {
+                            for debug_info_op in debug_info {
+                                println!("{}", flynes_core::debug_info::cpu_debug_str(
+                                    debug_info_op.get_cpu_debug(),
+                                    debug_info_op.get_bus_debug()
+                                ))
+                            }
+                        }
+                        Err(err) => {
+                            if SHOW_EXECUTION_ERR {
+                                eprintln!("{err}");
                             }
                         }
                     }

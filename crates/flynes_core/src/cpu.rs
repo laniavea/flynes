@@ -3,7 +3,7 @@ use log::{debug, error, info, warn};
 
 use crate::bus::{Bus, InterruptStatus};
 use crate::common;
-use crate::debug_info::CpuDebug;
+use crate::debug_info::{CpuDebug, OperationDebug};
 use crate::memory::MemoryType;
 use instructions::{CPUInstByte, Operation};
 
@@ -423,5 +423,37 @@ impl Cpu {
         self.exec_instructions += 1;
 
         Ok(())
+    }
+
+    pub fn execute_n_operations(
+        &mut self,
+        bus: &mut Bus,
+        op_count: usize,
+        debug_last_n: usize,
+    ) -> Result<Vec<OperationDebug>, &'static str> {
+        let non_debug_op_count = op_count.saturating_sub(debug_last_n);
+        let debug_op_count = op_count.min(debug_last_n);
+        inst_assert_eq!(non_debug_op_count + debug_op_count, op_count);
+
+        let mut op_num = 0;
+        while op_num < non_debug_op_count {
+            self.execute_operation(bus, false)?;
+            op_num += 1;
+        }
+
+        let mut debug_op_num = 0;
+        let mut ops_debug: Vec<OperationDebug> = Vec::with_capacity(debug_op_count);
+        while debug_op_num < debug_op_count {
+            self.execute_operation(bus, true)?;
+            let op_debug_opt = OperationDebug::new(self, bus);
+            match op_debug_opt {
+                Some(op_debug) => ops_debug.push(op_debug),
+                None => return Err("Tried to create OperationDebug without actual data"),
+            }
+
+            debug_op_num += 1;
+        }
+
+        Ok(ops_debug)
     }
 }

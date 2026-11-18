@@ -1,6 +1,7 @@
 use better_assertions::inst_assert;
 
-use crate::bus::AddressCpu;
+use crate::bus::{AddressCpu, Bus};
+use crate::cpu::Cpu;
 use crate::cpu::instructions::Operation;
 use crate::memory::MemoryType;
 
@@ -47,6 +48,32 @@ pub struct BusDebug {
     fetch_len: u8,
     decode_len: Option<u8>,
     operations: Vec<BusOperationInfo>,
+}
+
+#[derive(Clone, Debug)]
+pub struct OperationDebug {
+    cpu_debug: CpuDebug,
+    bus_debug: BusDebug,
+}
+
+impl OperationDebug {
+    pub fn new(cpu: &Cpu, bus: &Bus) -> Option<OperationDebug> {
+        let cpu_debug_ref = cpu.debug_info().as_ref()?;
+        let bus_debug_ref = bus.debug_info().as_ref()?;
+
+        Some(OperationDebug {
+            cpu_debug: *cpu_debug_ref,
+            bus_debug: bus_debug_ref.clone(),
+        })
+    }
+
+    pub fn get_cpu_debug(&self) -> &CpuDebug {
+        &self.cpu_debug
+    }
+
+    pub fn get_bus_debug(&self) -> &BusDebug {
+        &self.bus_debug
+    }
 }
 
 impl BusDebug {
