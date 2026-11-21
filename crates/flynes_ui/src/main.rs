@@ -88,11 +88,8 @@ fn main() {
         };
     cpu.set_pc(0xC000);
 
-    let stack_data = bus.memory_mut().stack_as_slice_mut();
-    for (stack_value_c, stack_value) in (0_u16..).zip(stack_data.iter_mut()) {
-        *stack_value = stack_value_c
-            .try_into()
-            .expect("Stack slice have more than 256 values");
+    if TEST_UPDATE_TEX {
+        init_update_tex(&mut bus);
     }
 
     let sdl_ttf = sdl3::ttf::init().unwrap();
@@ -264,6 +261,15 @@ fn main() {
         }
 
         std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
+    }
+}
+
+fn init_update_tex(bus: &mut flynes_core::bus::Bus) {
+    let stack_data = bus.memory_mut().stack_as_slice_mut();
+    for (stack_value_c, stack_value) in (0_u16..).zip(stack_data.iter_mut()) {
+        *stack_value = stack_value_c
+            .try_into()
+            .expect("Stack slice have more than 256 values");
     }
 }
 
